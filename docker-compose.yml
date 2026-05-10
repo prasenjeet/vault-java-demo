@@ -1,0 +1,102 @@
+version: '3.8'
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HashiCorp Vault Java Demo — Local Development Stack
+#
+# Usage:
+#   docker compose up -d
+#   bash scripts/setup-all.sh
+#   mvn exec:java
+#
+# Services:
+#   vault      → http://localhost:8201  (token: root)
+#   postgres   → localhost:5432
+#   pgadmin    → http://localhost:5050  (admin@admin.com / admin)
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── HashiCorp Vault (Dev Mode) ─────────────────────────────────────────────
+  #
+  # CAP_SETFCAP fix:
+  #   Newer Vault images try to set file capabilities via setcap, which fails
+  #   in rootless Docker, WSL2, CI/CD runners, and restricted cloud VMs.
+  #
+  #   Fix 1 — SKIP_SETCAP=true      : skips the setcap call entirely
+  #   Fix 2 — disable_mlock=true    : disables memory locking (safe for dev)
+  #            so IPC_LOCK capability is not needed at all
+  #   Fix 3 — cap_add: IPC_LOCK     : REMOVED (caused the CAP_SETFCAP error)
+  #
+  vault:
+    image: hashicorp/vault:latest
+    container_name: vault-dev
+    # ── DO NOT add cap_add: IPC_LOCK — triggers CAP_SETFCAP error ──────────
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID:   root
+      VAULT_DEV_LISTEN_ADDRESS:  0.0.0.0:8201
+      VAULT_LOG_LEVEL:           info
+      # Skips the setcap binary call that causes CAP_SETFCAP permission error
+      SKIP_SETCAP:               "true"
+      # Inline HCL config — disables mlock so IPC_LOCK cap is not required
+      VAULT_LOCAL_CONFIG: |
+        {
+          "disable_mlock": true,
+          "ui": true
+        }
+    ports:
+      - "8201:8201"
+    # Give vault user permission to write its data directory
+    user: "100:1000"
+    healthcheck:
+      test: ["CMD", "vault", "status"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 5s
+    networks:
+      - vault-net
+
+  # ── PostgreSQL (for Dynamic DB Secrets) ───────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: vault-postgres
+    environment:
+      POSTGRES_USER:     postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB:       mydb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - vault-net
+
+  # ── PgAdmin (optional — DB browser UI) ────────────────────────────────────
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: vault-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL:    admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - vault-net
+    profiles:
+      - tools    # Only started with: docker compose --profile tools up
+
+volumes:
+  postgres_data:
+
+networks:
+  vault-net:
+    driver: bridge
