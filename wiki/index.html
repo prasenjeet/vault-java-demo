@@ -1,0 +1,1863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HashiCorp Vault Java Demo — Wiki</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --sidebar-w: 240px;
+      --sidebar-bg: #0f172a;
+      --sidebar-hover: #1e293b;
+      --sidebar-active: #1e293b;
+      --accent: #818cf8;
+      --accent-border: #6366f1;
+      --text-sidebar: #94a3b8;
+      --text-sidebar-active: #f1f5f9;
+      --header-h: 56px;
+      --content-bg: #ffffff;
+      --content-text: #1e293b;
+      --code-bg: #282c34;
+      --border: #e2e8f0;
+      --table-head: #f8fafc;
+      --tag-bg: #ede9fe;
+      --tag-text: #4f46e5;
+    }
+
+    html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+
+    /* ── Header ───────────────────────────────────────────────────────────── */
+    .header {
+      position: fixed; top: 0; left: 0; right: 0; height: var(--header-h);
+      background: var(--sidebar-bg); border-bottom: 1px solid #1e293b;
+      display: flex; align-items: center; padding: 0 20px; z-index: 100;
+      gap: 12px;
+    }
+    .header-logo {
+      width: 28px; height: 28px; flex-shrink: 0;
+    }
+    .header-title {
+      color: #f1f5f9; font-size: 15px; font-weight: 600; letter-spacing: -0.01em;
+    }
+    .header-subtitle {
+      color: #475569; font-size: 13px; margin-left: 4px;
+    }
+    .header-badge {
+      margin-left: auto; background: var(--tag-bg); color: var(--tag-text);
+      font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 20px;
+      letter-spacing: 0.02em;
+    }
+
+    /* ── Layout ───────────────────────────────────────────────────────────── */
+    .layout {
+      display: flex; margin-top: var(--header-h); height: calc(100vh - var(--header-h));
+    }
+
+    /* ── Sidebar ──────────────────────────────────────────────────────────── */
+    .sidebar {
+      width: var(--sidebar-w); background: var(--sidebar-bg);
+      overflow-y: auto; flex-shrink: 0;
+      border-right: 1px solid #1e293b;
+      padding: 12px 0 24px;
+    }
+    .sidebar::-webkit-scrollbar { width: 4px; }
+    .sidebar::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
+
+    .nav-section {
+      padding: 16px 16px 4px;
+      color: #475569; font-size: 10px; font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase;
+    }
+
+    .nav-btn {
+      display: flex; align-items: center; gap: 8px;
+      width: 100%; padding: 7px 16px;
+      background: none; border: none; cursor: pointer;
+      color: var(--text-sidebar); font-size: 13.5px;
+      text-align: left; border-left: 2px solid transparent;
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .nav-btn:hover {
+      background: var(--sidebar-hover); color: #cbd5e1;
+    }
+    .nav-btn.active {
+      background: var(--sidebar-active); color: var(--text-sidebar-active);
+      border-left-color: var(--accent-border); font-weight: 500;
+    }
+    .nav-btn .icon { font-size: 15px; flex-shrink: 0; }
+
+    /* ── Main Content ─────────────────────────────────────────────────────── */
+    .content {
+      flex: 1; overflow-y: auto; background: var(--content-bg);
+    }
+    .content::-webkit-scrollbar { width: 6px; }
+    .content::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+
+    .page { display: none; max-width: 860px; padding: 40px 48px 80px; margin: 0 auto; }
+    .page.active { display: block; }
+
+    /* ── Markdown Styles ──────────────────────────────────────────────────── */
+    .page h1 {
+      font-size: 28px; font-weight: 700; color: #0f172a;
+      padding-bottom: 12px; border-bottom: 2px solid var(--border);
+      margin-bottom: 24px; letter-spacing: -0.02em;
+    }
+    .page h2 {
+      font-size: 20px; font-weight: 600; color: #1e293b;
+      margin: 36px 0 14px; padding-bottom: 6px;
+      border-bottom: 1px solid var(--border);
+    }
+    .page h3 {
+      font-size: 16px; font-weight: 600; color: #334155;
+      margin: 24px 0 10px;
+    }
+    .page h4 {
+      font-size: 14px; font-weight: 600; color: #475569;
+      margin: 18px 0 8px; text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .page p { color: var(--content-text); line-height: 1.75; margin-bottom: 14px; font-size: 15px; }
+    .page a { color: var(--accent-border); text-decoration: none; }
+    .page a:hover { text-decoration: underline; }
+    .page ul, .page ol { margin: 10px 0 14px 22px; color: var(--content-text); font-size: 15px; }
+    .page li { line-height: 1.75; margin-bottom: 3px; }
+
+    /* Inline code */
+    .page code:not(pre code) {
+      background: #f1f5f9; color: #be185d;
+      padding: 2px 6px; border-radius: 4px;
+      font-family: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+      font-size: 13px; border: 1px solid #e2e8f0;
+    }
+
+    /* Code blocks */
+    .page pre {
+      margin: 16px 0; border-radius: 8px; overflow: hidden;
+      border: 1px solid #2d3748;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    }
+    .page pre code {
+      font-family: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+      font-size: 13px; line-height: 1.6; display: block;
+      overflow-x: auto; padding: 18px 20px;
+    }
+    /* Language label */
+    .page pre { position: relative; }
+
+    /* Tables */
+    .page table {
+      width: 100%; border-collapse: collapse; margin: 18px 0;
+      font-size: 14px; border: 1px solid var(--border); border-radius: 8px;
+      overflow: hidden;
+    }
+    .page thead { background: var(--table-head); }
+    .page th {
+      padding: 10px 14px; text-align: left; font-weight: 600; color: #374151;
+      font-size: 13px; border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    .page td {
+      padding: 9px 14px; color: #374151; border-bottom: 1px solid #f1f5f9;
+      vertical-align: top; line-height: 1.5;
+    }
+    .page tr:last-child td { border-bottom: none; }
+    .page tr:hover td { background: #fafafa; }
+
+    /* Blockquote */
+    .page blockquote {
+      border-left: 3px solid var(--accent-border); padding: 10px 16px;
+      background: #f8f7ff; margin: 16px 0; border-radius: 0 6px 6px 0;
+      color: #4b5563;
+    }
+    .page blockquote p { margin: 0; font-size: 14px; }
+
+    /* HR */
+    .page hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+
+    /* ── Search ───────────────────────────────────────────────────────────── */
+    .search-wrap { padding: 10px 12px 2px; }
+    .search-input {
+      width: 100%; padding: 7px 10px; border-radius: 6px;
+      border: 1px solid #1e293b; background: #1e293b;
+      color: #94a3b8; font-size: 13px; outline: none;
+    }
+    .search-input::placeholder { color: #475569; }
+    .search-input:focus { border-color: var(--accent-border); color: #e2e8f0; }
+
+    /* ── Mobile ───────────────────────────────────────────────────────────── */
+    @media (max-width: 720px) {
+      :root { --sidebar-w: 200px; }
+      .page { padding: 24px 20px 60px; }
+      .header-subtitle { display: none; }
+    }
+    @media (max-width: 520px) {
+      .sidebar { display: none; }
+      .layout { display: block; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Header ─────────────────────────────────────────────────────────────── -->
+<header class="header">
+  <svg class="header-logo" viewBox="0 0 28 28" fill="none">
+    <rect width="28" height="28" rx="6" fill="#6366f1"/>
+    <path d="M14 5L7 9.5v9L14 23l7-4.5v-9L14 5z" fill="none" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+    <path d="M14 5v18M7 9.5l7 4.5 7-4.5" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+  </svg>
+  <span class="header-title">HashiCorp Vault</span>
+  <span class="header-subtitle">Java Demo</span>
+  <span class="header-badge">Wiki</span>
+</header>
+
+<!-- ── Layout ─────────────────────────────────────────────────────────────── -->
+<div class="layout">
+
+  <!-- ── Sidebar ────────────────────────────────────────────────────────── -->
+  <nav class="sidebar">
+    <div class="search-wrap">
+      <input class="search-input" type="text" placeholder="Search pages…" id="searchInput" oninput="filterNav(this.value)">
+    </div>
+
+    <div class="nav-section" id="nav-group-general">General</div>
+    <button class="nav-btn active" onclick="showPage('home')" data-label="Home">
+      <span class="icon">🏠</span> Home
+    </button>
+    <button class="nav-btn" onclick="showPage('architecture')" data-label="Architecture">
+      <span class="icon">🏗️</span> Architecture
+    </button>
+    <button class="nav-btn" onclick="showPage('getting-started')" data-label="Getting Started">
+      <span class="icon">🚀</span> Getting Started
+    </button>
+
+    <div class="nav-section" id="nav-group-engines">Secret Engines</div>
+    <button class="nav-btn" onclick="showPage('db')" data-label="Database">
+      <span class="icon">🗄️</span> Database
+    </button>
+    <button class="nav-btn" onclick="showPage('pki')" data-label="PKI">
+      <span class="icon">🔐</span> PKI
+    </button>
+    <button class="nav-btn" onclick="showPage('transit')" data-label="Transit">
+      <span class="icon">🔒</span> Transit
+    </button>
+    <button class="nav-btn" onclick="showPage('ssh')" data-label="SSH">
+      <span class="icon">🖥️</span> SSH
+    </button>
+
+    <div class="nav-section" id="nav-group-ref">Reference</div>
+    <button class="nav-btn" onclick="showPage('auth')" data-label="Authentication">
+      <span class="icon">🔑</span> Authentication
+    </button>
+    <button class="nav-btn" onclick="showPage('config')" data-label="Configuration">
+      <span class="icon">⚙️</span> Configuration
+    </button>
+    <button class="nav-btn" onclick="showPage('api')" data-label="Java API Reference">
+      <span class="icon">📚</span> Java API Reference
+    </button>
+    <button class="nav-btn" onclick="showPage('testing')" data-label="Testing">
+      <span class="icon">🧪</span> Testing
+    </button>
+  </nav>
+
+  <!-- ── Content ────────────────────────────────────────────────────────── -->
+  <main class="content">
+    <div id="page-home"         class="page active"></div>
+    <div id="page-architecture" class="page"></div>
+    <div id="page-getting-started" class="page"></div>
+    <div id="page-db"           class="page"></div>
+    <div id="page-pki"          class="page"></div>
+    <div id="page-transit"      class="page"></div>
+    <div id="page-ssh"          class="page"></div>
+    <div id="page-auth"         class="page"></div>
+    <div id="page-config"       class="page"></div>
+    <div id="page-api"          class="page"></div>
+    <div id="page-testing"      class="page"></div>
+  </main>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     Markdown Content
+     ═══════════════════════════════════════════════════════════════════════════ -->
+
+<script type="text/markdown" id="md-home">
+# HashiCorp Vault Java Demo — Wiki
+
+A production-grade Java demonstration of all four major HashiCorp Vault secret engines.
+
+## Pages
+
+| Page | Description |
+|------|-------------|
+| [Architecture](#architecture) | Component diagram, data flows, design decisions |
+| [Getting Started](#getting-started) | Prerequisites, infrastructure setup, running the demo |
+| [Database](db) | Dynamic PostgreSQL credentials, lease management, HikariCP integration |
+| [PKI](pki) | X.509 certificate issuance, CA hierarchy, CSR signing, revocation |
+| [Transit](transit) | Encryption-as-a-Service, signing, HMAC, key rotation, envelope encryption |
+| [SSH](ssh) | OTP authentication, signed SSH certificates, host certificates |
+| [Authentication](auth) | Token auth (dev), AppRole auth (production), policy configuration |
+| [Configuration](config) | All environment variables, defaults, and Vault paths |
+| [Java API Reference](api) | Method signatures and usage for all service classes |
+| [Testing](testing) | Integration tests with Testcontainers, test structure |
+
+## Quick Start
+
+```bash
+# 1. Start Vault + PostgreSQL
+docker compose up -d
+
+# 2. Configure all secret engines
+export VAULT_ADDR=http://127.0.0.1:8201
+export VAULT_TOKEN=root
+bash scripts/setup-all.sh
+
+# 3. Run the demo
+mvn exec:java -Dexec.mainClass=com.example.vault.VaultDemoApplication
+
+# 4. Run a specific engine
+mvn exec:java -Dexec.mainClass=com.example.vault.VaultDemoApplication -Dexec.args=transit
+```
+
+## Secret Engines at a Glance
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│            Secret Engine Coverage                                │
+│                                                                  │
+│  ① Dynamic DB Secrets  — Auto-rotating PostgreSQL credentials   │
+│  ② PKI                 — On-demand X.509 TLS certificates       │
+│  ③ Transit             — Encryption / Signing / HMAC / Key Mgmt │
+│  ④ SSH                 — OTP login + Signed certificate access   │
+└──────────────────────────────────────────────────────────────────┘
+```
+</script>
+
+<script type="text/markdown" id="md-architecture">
+# Architecture
+
+## Component Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                      vault-java-demo                                │
+│                                                                     │
+│  VaultDemoApplication                                               │
+│        │                                                            │
+│        ├─── VaultConfig (singleton)                                 │
+│        │       └── VaultTemplate (Spring Vault)                     │
+│        │                                                            │
+│        ├─── DynamicDatabaseSecretService   ──► Vault database/      │
+│        │       └── HikariCP DataSource     ──► PostgreSQL           │
+│        │                                                            │
+│        ├─── PkiSecretService               ──► Vault pki_int/       │
+│        │       └── BouncyCastle (cert parsing)                      │
+│        │                                                            │
+│        ├─── TransitSecretService           ──► Vault transit/       │
+│        │       └── VaultTransitOperations                           │
+│        │                                                            │
+│        └─── SshSecretService               ──► Vault ssh/           │
+│                                                 ssh-client-signer/  │
+│                                                 ssh-host-signer/    │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+## Runtime Infrastructure (docker-compose.yml)
+
+```
+┌──────────────────────┐     ┌──────────────────────┐
+│  HashiCorp Vault     │     │  PostgreSQL           │
+│  Port: 8201          │     │  Port: 5432           │
+│  Dev mode (unsealed) │     │  DB: mydb             │
+│  Root token: root    │     │  User: postgres       │
+└──────────────────────┘     └──────────────────────┘
+```
+
+## Package Structure
+
+```
+com.example.vault/
+├── VaultDemoApplication.java      Main entry point; CLI arg routing
+├── config/
+│   ├── VaultConfig.java           Singleton; token auth; VaultTemplate factory
+│   └── AppRoleVaultConfig.java    Production AppRole authentication
+├── db/
+│   └── DynamicDatabaseSecretService.java
+├── pki/
+│   └── PkiSecretService.java
+├── transit/
+│   └── TransitSecretService.java
+├── ssh/
+│   └── SshSecretService.java
+└── model/
+    ├── DatabaseCredential.java    Record: username, password, leaseId, ttl, role
+    └── IssuedCertificate.java     Record: certPem, keyPem, caPem, leaseId, ttl
+```
+
+## Key Design Decisions
+
+### VaultTemplate as the central client
+All secret engines use `VaultTemplate` from Spring Vault (`spring-vault-core`). This is used standalone — no Spring Boot required. Configured once in `VaultConfig` and shared across services.
+
+### Singleton VaultConfig
+`VaultConfig` is a thread-safe singleton (`getInstance()`). `getVaultTemplate()` is lazily initialized and synchronized. This avoids creating multiple HTTP connection pools for the same Vault connection.
+
+### Records for domain types
+`DatabaseCredential` and `IssuedCertificate` are Java 17 records. They are immutable value objects — credentials from Vault are never mutated after creation.
+
+### Demo mode / graceful degradation
+`VaultDemoApplication.main()` catches connectivity failures and continues in demo mode. Each engine's `runDemo()` method catches its own exceptions and prints informative setup hints.
+
+### SecretLeaseContainer for auto-renewal
+`DynamicDatabaseSecretService.setupAutoRenewal()` uses Spring Vault's `SecretLeaseContainer` with `RequestedSecret.rotating()`. When the lease is renewed, a new `HikariCP` pool is created atomically via `AtomicReference<HikariDataSource>`, and the old pool is closed. This achieves zero-downtime credential rotation.
+
+### Private keys never leave Vault (Transit)
+All Transit operations send plaintext to Vault and receive ciphertext back. The private signing keys (ECDSA P-256, RSA-4096) are stored in Vault and are never returned to the application.
+
+## Data Flow Examples
+
+### Dynamic DB Credential Lifecycle
+```
+App boots
+  └► VaultConfig.getVaultTemplate()
+  └► DynamicDatabaseSecretService.getDynamicCredentials("readonly")
+       └► GET /v1/database/creds/readonly
+       ◄── { username, password, lease_id, lease_duration: 3600s }
+  └► buildDataSource(cred)              → HikariCP pool
+  └► executeQuery()                     → PostgreSQL
+  └► revokeLease(cred) [on shutdown]
+       └► POST /v1/sys/leases/revoke
+       └── PostgreSQL: DROP ROLE "v-token-readonly-xyz"
+```
+
+### Transit Encrypt/Decrypt
+```
+encrypt("app-encryption", "sensitive data")
+  └► POST /v1/transit/encrypt/app-encryption
+       body: { plaintext: base64("sensitive data") }
+  ◄── { ciphertext: "vault:v3:AAAA..." }
+
+decrypt("app-encryption", "vault:v3:AAAA...")
+  └► POST /v1/transit/decrypt/app-encryption
+       body: { ciphertext: "vault:v3:AAAA..." }
+  ◄── { plaintext: base64("sensitive data") }
+```
+
+### PKI Certificate Issuance
+```
+issueCertificate("api.internal.example.com", 72h, SANs, IPs)
+  └► POST /v1/pki_int/issue/example-dot-com
+       body: { common_name, ttl, alt_names, ip_sans }
+  ◄── { certificate: PEM, private_key: PEM, issuing_ca: PEM }
+```
+</script>
+
+<script type="text/markdown" id="md-getting-started">
+# Getting Started
+
+## Prerequisites
+
+| Tool | Version | Purpose |
+|------|---------|---------|
+| Java | 17+ | Runtime (JDK required) |
+| Maven | 3.8+ | Build and dependency management |
+| Docker | 20+ | Vault + PostgreSQL containers |
+| `vault` CLI | 1.15+ | Setup scripts |
+| `jq` | any | Used in `setup-all.sh` for JSON parsing |
+
+Set `JAVA_HOME` if needed:
+
+```bash
+export JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home
+```
+
+## Step 1 — Start Infrastructure
+
+```bash
+# Start Vault (port 8201) and PostgreSQL (port 5432)
+docker compose up -d
+
+# Confirm both containers are running
+docker ps
+
+# Verify Vault health
+curl http://localhost:8201/v1/sys/health
+# Expected: {"initialized":true,"sealed":false,...}
+```
+
+The `docker-compose.yml` starts:
+- Vault in dev mode with root token `root`, listening on port `8201`
+- PostgreSQL with database `mydb`, user `postgres`, password `postgres`
+
+## Step 2 — Configure Vault Secret Engines
+
+```bash
+export VAULT_ADDR=http://127.0.0.1:8201
+export VAULT_TOKEN=root
+
+bash scripts/setup-all.sh
+```
+
+The setup script configures, in order:
+
+1. **Database engine** — PostgreSQL connection + `readonly` and `readwrite` roles
+2. **PKI engine** — Root CA → Intermediate CA → certificate issuance role
+3. **Transit engine** — AES-256, ECDSA, RSA-4096, and HMAC keys
+4. **SSH engine** — OTP role, client-signer CA, host-signer CA
+5. **Vault policy** — `myapp-policy` covering all paths
+6. **AppRole auth** — `myapp` role bound to the policy
+
+On success, the script prints:
+
+```
+VAULT_ROLE_ID=<role-id>
+VAULT_SECRET_ID=<secret-id>
+```
+
+Save these for AppRole authentication.
+
+## Step 3 — Run the Demo
+
+```bash
+# All four engines
+mvn exec:java -Dexec.mainClass=com.example.vault.VaultDemoApplication
+
+# Specific engine
+mvn exec:java -Dexec.mainClass=com.example.vault.VaultDemoApplication -Dexec.args=transit
+mvn exec:java -Dexec.mainClass=com.example.vault.VaultDemoApplication -Dexec.args=db
+mvn exec:java -Dexec.mainClass=com.example.vault.VaultDemoApplication -Dexec.args=pki
+mvn exec:java -Dexec.mainClass=com.example.vault.VaultDemoApplication -Dexec.args=ssh
+```
+
+Environment variables (defaults work against `docker compose up`):
+
+```bash
+export VAULT_ADDR=http://127.0.0.1:8201
+export VAULT_TOKEN=root
+export DB_HOST=localhost
+export DB_PORT=5432
+export DB_NAME=mydb
+```
+
+## Step 4 — Run Integration Tests
+
+```bash
+# Testcontainers spins up real Vault and PostgreSQL automatically
+mvn test
+```
+
+Tests are in `src/test/java/com/example/vault/VaultIntegrationTest.java`. Docker must be running.
+
+## Build Fat JAR
+
+```bash
+mvn package -DskipTests
+java -jar target/vault-java-demo-1.0.0.jar [db|pki|transit|ssh|all]
+```
+
+## Verifying Individual Engines via CLI
+
+After running `setup-all.sh`, you can test each engine independently:
+
+```bash
+# Database — fetch dynamic credentials
+vault read database/creds/readonly
+
+# PKI — issue a certificate
+vault write pki_int/issue/example-dot-com common_name=api.internal.example.com ttl=1h
+
+# Transit — encrypt/decrypt
+vault write transit/encrypt/app-encryption plaintext=$(echo -n "hello" | base64)
+vault write transit/decrypt/app-encryption ciphertext=<ciphertext from above>
+
+# SSH — generate OTP
+vault write ssh/creds/otp-role ip=10.0.0.1 username=ubuntu
+
+# SSH — sign a public key
+vault write ssh-client-signer/sign/my-role public_key=@~/.ssh/id_rsa.pub
+```
+
+## Troubleshooting
+
+**`Vault is sealed`** — Restart the Vault container: `docker compose restart vault`
+
+**`No credentials returned from Vault`** — Setup script did not run or failed. Re-run `bash scripts/setup-all.sh`.
+
+**`PostgreSQL connection refused`** — Container not ready yet. Wait ~5s after `docker compose up -d`.
+
+**`VAULT_ROLE_ID and VAULT_SECRET_ID must be set`** — You instantiated `AppRoleVaultConfig` without those env vars. Use `VaultConfig` (token auth) for local dev.
+</script>
+
+<script type="text/markdown" id="md-db">
+# Secret Engine: Dynamic Database Secrets
+
+**Class**: `com.example.vault.db.DynamicDatabaseSecretService`
+
+## What It Does
+
+Vault generates short-lived PostgreSQL credentials on demand. No static passwords are stored anywhere. Each credential set has a TTL; when it expires, Vault automatically drops the database role.
+
+## How It Works
+
+```
+App → vault read database/creds/readonly
+    ← { username: "v-token-readonly-abc123",
+        password: "A1b2-C3d4-E5f6-G7h8",
+        lease_id: "database/creds/readonly/abcdef...",
+        lease_duration: 3600 }
+App → PostgreSQL (connect with dynamic creds)
+TTL expires → Vault executes: DROP ROLE "v-token-readonly-abc123"
+```
+
+## Vault Configuration
+
+```bash
+vault secrets enable database
+
+vault write database/config/mypostgres \
+    plugin_name=postgresql-database-plugin \
+    allowed_roles="readonly,readwrite,admin" \
+    connection_url="postgresql://{{username}}:{{password}}@postgres:5432/mydb?sslmode=disable" \
+    username="postgres" \
+    password="postgres"
+```
+
+**Roles:**
+
+| Role | Permissions | default_ttl | max_ttl |
+|------|-------------|-------------|---------|
+| `readonly` | SELECT on all tables + sequences | 1h | 24h |
+| `readwrite` | SELECT, INSERT, UPDATE, DELETE | 1h | 24h |
+
+## Java API
+
+### Fetch credentials once
+
+```java
+DynamicDatabaseSecretService service = new DynamicDatabaseSecretService(
+    vaultTemplate, "localhost", "5432", "mydb");
+
+DatabaseCredential cred = service.getDynamicCredentials("readonly");
+// cred.username()             → "v-token-readonly-abc123"
+// cred.password()             → "A1b2-C3d4-..."
+// cred.leaseId()              → "database/creds/readonly/..."
+// cred.leaseDurationSeconds() → 3600
+// cred.role()                 → "readonly"
+```
+
+### Build a HikariCP connection pool
+
+```java
+HikariDataSource ds = service.buildDataSource(cred);
+
+try (Connection conn = ds.getConnection()) {
+    // Use the connection normally
+}
+```
+
+Pool settings applied automatically:
+- `maximumPoolSize=5`, `minimumIdle=1`
+- `maxLifetime` set to `(leaseDuration - 60) seconds` to prevent stale connections
+- `connectionTestQuery=SELECT 1`
+
+### Auto-renewal with SecretLeaseContainer
+
+```java
+AtomicReference<HikariDataSource> dsHolder = new AtomicReference<>();
+service.setupAutoRenewal("readonly", dsHolder);
+
+// SecretLeaseContainer runs in background.
+// On renewal → new DataSource created, old one closed atomically.
+try (Connection conn = dsHolder.get().getConnection()) { ... }
+```
+
+Uses `RequestedSecret.rotating()` — Spring Vault tracks the lease and renews it before expiry.
+
+### Revoke a lease explicitly
+
+```java
+service.revokeLease(cred);
+// Calls POST /v1/sys/leases/revoke
+// Vault drops the DB user immediately
+```
+
+## DatabaseCredential Record
+
+```java
+public record DatabaseCredential(
+    String username,
+    String password,
+    String leaseId,
+    long   leaseDurationSeconds,
+    String role
+) {
+    public boolean isNearExpiry(long thresholdSeconds, long issuedAtEpochSeconds)
+}
+```
+
+`toString()` never includes the password.
+
+## Vault Paths
+
+| Operation | HTTP | Vault Path |
+|-----------|------|------------|
+| Fetch credentials | `GET` | `database/creds/{role}` |
+| Revoke lease | `POST` | `sys/leases/revoke` |
+| Renew lease | `POST` | `sys/leases/renew` |
+
+## Policy Requirements
+
+```hcl
+path "database/creds/readonly"  { capabilities = ["read"] }
+path "database/creds/readwrite" { capabilities = ["read"] }
+path "sys/leases/renew"         { capabilities = ["create", "update"] }
+path "sys/leases/revoke"        { capabilities = ["create", "update"] }
+```
+
+## Username Format
+
+Vault-generated usernames follow: `v-{auth_method}-{role}-{random}`
+
+- Token auth (dev): `v-token-readonly-abc123xyz`
+- AppRole auth: `v-approle-readonly-abc123xyz`
+
+The database user is dropped when the lease expires or `revokeLease()` is called.
+</script>
+
+<script type="text/markdown" id="md-pki">
+# Secret Engine: PKI (Certificate Authority)
+
+**Class**: `com.example.vault.pki.PkiSecretService`
+
+## What It Does
+
+Vault acts as an internal Certificate Authority. It issues X.509 TLS certificates on demand with configurable TTLs. No manual CSR/signing workflow — the application requests a cert and uses it.
+
+## CA Hierarchy
+
+```
+Root CA (mount: pki/)
+    └── Intermediate CA (mount: pki_int/)
+            └── Issues certs for *.example.com
+                             *.internal.example.com
+                             *.test.example.com
+```
+
+The intermediate CA is what applications interact with. The root CA's private key is used only to sign the intermediate CA certificate.
+
+## Vault Configuration
+
+```bash
+# Root CA
+vault secrets enable pki
+vault secrets tune -max-lease-ttl=87600h pki
+vault write pki/root/generate/internal common_name="example.com Root CA" ttl=87600h
+
+# Intermediate CA
+vault secrets enable -path=pki_int pki
+vault secrets tune -max-lease-ttl=43800h pki_int
+
+# Issuance role
+vault write pki_int/roles/example-dot-com \
+    allowed_domains="example.com,internal.example.com,test.example.com" \
+    allow_subdomains=true \
+    allow_bare_domains=true \
+    max_ttl=720h \
+    key_type=rsa \
+    key_bits=2048 \
+    server_flag=true \
+    client_flag=true
+```
+
+## Java API
+
+### Construct the service
+
+```java
+PkiSecretService pki = new PkiSecretService(
+    vaultTemplate,
+    "pki_int",         // mount path of the intermediate CA
+    "example-dot-com"  // role name
+);
+```
+
+### Issue a certificate
+
+```java
+IssuedCertificate cert = pki.issueCertificate(
+    "api.internal.example.com",
+    Duration.ofHours(72),
+    new String[]{"api.example.com", "localhost"},  // DNS SANs
+    new String[]{"127.0.0.1", "10.0.0.5"}         // IP SANs
+);
+
+cert.commonName()           // "api.internal.example.com"
+cert.certificatePem()       // "-----BEGIN CERTIFICATE-----..."
+cert.privateKeyPem()        // "-----BEGIN RSA PRIVATE KEY-----..."
+cert.issuingCaPem()         // "-----BEGIN CERTIFICATE-----..."
+cert.leaseDurationSeconds() // 259200 (72h)
+```
+
+### Sign an externally-generated CSR
+
+```java
+String csrPem = Files.readString(Path.of("/path/to/request.csr"));
+
+String signedCertPem = pki.signCsr(
+    csrPem,
+    "service.internal.example.com",
+    Duration.ofHours(24)
+);
+```
+
+Use this when the private key must never leave the requesting system.
+
+### Revoke a certificate
+
+```java
+pki.revokeCertificate("1a:2b:3c:4d:5e:6f");
+// Certificate appears in CRL at next rotation
+```
+
+### Save certificate to files
+
+```java
+pki.saveCertificateToFiles(cert, Path.of("/etc/app/tls"));
+// Writes:
+//   /etc/app/tls/tls.crt  — certificate
+//   /etc/app/tls/tls.key  — private key (chmod 600)
+//   /etc/app/tls/ca.crt   — issuing CA cert
+//   /etc/app/tls/chain.pem — full CA chain (if present)
+```
+
+### Parse and inspect a certificate
+
+```java
+X509Certificate x509 = pki.parseCertificate(cert.certificatePem());
+
+x509.getSubjectX500Principal()  // CN=api.internal.example.com
+x509.getIssuerX500Principal()   // CN=example.com Intermediate CA
+x509.getNotBefore()             // issue time
+x509.getNotAfter()              // expiry time
+x509.getSerialNumber()          // BigInteger serial
+```
+
+Uses BouncyCastle (`bcpkix-jdk18on`) for PEM parsing, with a JDK `CertificateFactory` fallback.
+
+## IssuedCertificate Record
+
+```java
+public record IssuedCertificate(
+    String commonName,
+    String certificatePem,    // tls.crt
+    String privateKeyPem,     // tls.key — SENSITIVE
+    String issuingCaPem,      // ca.crt
+    String caChainPem,        // chain.pem
+    String leaseId,
+    long   leaseDurationSeconds
+)
+// toString() → summary() — never exposes private key
+```
+
+## Vault Paths
+
+| Operation | HTTP | Vault Path |
+|-----------|------|------------|
+| Issue certificate | `POST` | `pki_int/issue/example-dot-com` |
+| Sign CSR | `POST` | `pki_int/sign/example-dot-com` |
+| Revoke certificate | `POST` | `pki_int/revoke` |
+| Get CRL | `GET` | `pki_int/crl` (unauthenticated) |
+
+## Policy Requirements
+
+```hcl
+path "pki_int/issue/example-dot-com" { capabilities = ["create", "update"] }
+path "pki_int/sign/example-dot-com"  { capabilities = ["create", "update"] }
+path "pki_int/revoke"                { capabilities = ["create", "update"] }
+```
+
+## Certificate Rotation Strategy
+
+Short-lived certs (≤72h) make revocation less critical — let them expire. For longer TTLs, use `revokeCertificate()` and rely on CRL or OCSP.
+
+- **Microservices**: issue 24h–72h certs at startup, restart to rotate
+- **CI/CD pipelines**: issue 1h cert per job, let it expire
+- **Long-running services**: background thread calls `issueCertificate()` ~1h before expiry
+</script>
+
+<script type="text/markdown" id="md-transit">
+# Secret Engine: Transit (Encryption-as-a-Service)
+
+**Class**: `com.example.vault.transit.TransitSecretService`
+
+## What It Does
+
+Vault handles all cryptographic operations. The application sends plaintext to Vault and receives ciphertext back. Private keys **never leave Vault**. Ciphertext carries a version tag (`v3`) so old ciphertexts remain decryptable after key rotation.
+
+## Keys Configured
+
+| Constant | Key Name | Algorithm | Use Case |
+|----------|----------|-----------|----------|
+| `ENCRYPTION_KEY` | `app-encryption` | AES-256-GCM96 | Symmetric encrypt/decrypt |
+| `SIGNING_KEY` | `app-signing` | ECDSA P-256 | Digital signatures |
+| `RSA_KEY` | `app-rsa` | RSA-4096 | RSA signing |
+| `HMAC_KEY` | `app-hmac` | HMAC-SHA256 | Message authentication |
+
+## Vault Configuration
+
+```bash
+vault secrets enable transit
+
+vault write -f transit/keys/app-encryption           # AES-256-GCM
+vault write transit/keys/app-signing type=ecdsa-p256
+vault write transit/keys/app-rsa     type=rsa-4096
+vault write -f transit/keys/app-hmac
+
+vault write transit/keys/app-encryption/config \
+    min_decryption_version=1 \
+    min_encryption_version=0 \
+    deletion_allowed=false
+```
+
+## Java API
+
+### Encrypt / Decrypt
+
+```java
+TransitSecretService transit = new TransitSecretService(vaultTemplate);
+
+String ciphertext = transit.encrypt("app-encryption", "4111-1111-1111-1111");
+// → "vault:v1:8SDd3WHDOjf7mq69CkisfDy6ec2..."
+
+String plaintext = transit.decrypt("app-encryption", ciphertext);
+// → "4111-1111-1111-1111"
+```
+
+### Context-bound encryption
+
+```java
+// Ciphertext is bound to the context — cannot decrypt without the same context
+String ct = transit.encryptWithContext("app-encryption", "secret", "tenant-id-42");
+String pt = transit.decryptWithContext("app-encryption", ct, "tenant-id-42");
+```
+
+### Batch encrypt / decrypt
+
+```java
+List<String> records = List.of("SSN:123-45-6789", "SSN:987-65-4321", "SSN:555-12-3456");
+
+List<String> ciphertexts = transit.batchEncrypt("app-encryption", records);
+// Single API call to Vault regardless of list size
+
+List<String> plaintexts = transit.batchDecrypt("app-encryption", ciphertexts);
+```
+
+### Sign / Verify
+
+```java
+String payload   = "{\"userId\":\"u-1234\",\"action\":\"transfer\",\"amount\":5000}";
+String signature = transit.sign("app-signing", payload);
+// → "vault:v1:MEQCIHKr..."
+
+boolean valid = transit.verify("app-signing", payload, signature);
+// → true
+```
+
+### HMAC
+
+```java
+String hmacValue = transit.hmac("app-hmac", "message body");
+boolean ok       = transit.verifyHmac("app-hmac", "message body", hmacValue);
+```
+
+### Key rotation
+
+```java
+transit.rotateKey("app-encryption");
+// New encryptions use the latest version
+// Old ciphertexts (v1, v2...) still decrypt normally
+```
+
+### Rewrap ciphertext
+
+```java
+// Re-encrypt an old ciphertext with the latest key version — no plaintext exposed
+String newCt = transit.rewrap("app-encryption", oldCiphertext);
+// "vault:v1:..." → "vault:v3:..."
+```
+
+### Envelope encryption (data keys)
+
+```java
+Map<String, String> dek = transit.generateDataKey("app-encryption", 256);
+
+String plaintextKey  = dek.get("plaintext");   // base64 AES-256 key — use then discard
+String ciphertextKey = dek.get("ciphertext");  // vault:v1:... — store in DB
+
+// Pattern:
+// 1. Generate DEK from Vault
+// 2. Encrypt large data locally with plaintextKey (AES)
+// 3. Store ciphertextKey alongside encrypted data
+// 4. Discard plaintextKey from memory
+// 5. Later: decrypt ciphertextKey via Vault → use to decrypt data
+```
+
+### Hash and random bytes
+
+```java
+// Supported: sha2-256, sha2-512, sha3-256, sha3-512
+String hexHash    = transit.hash("my data", "sha2-256");
+
+// CSPRNG random bytes from Vault
+String base64Rand = transit.generateRandomBytes(32);
+```
+
+## Ciphertext Format
+
+```
+vault:v{version}:{base64-encoded-ciphertext}
+
+vault:v1:8SDd3WHDOjf7mq69Ck...    ← encrypted with key version 1
+vault:v3:KSDd3WHDOjf7mq69Ck...    ← encrypted with key version 3 (after 2 rotations)
+```
+
+## Vault Paths
+
+| Operation | HTTP | Vault Path |
+|-----------|------|------------|
+| Encrypt | `POST` | `transit/encrypt/{key}` |
+| Decrypt | `POST` | `transit/decrypt/{key}` |
+| Sign | `POST` | `transit/sign/{key}` |
+| Verify | `POST` | `transit/verify/{key}` |
+| HMAC | `POST` | `transit/hmac/{key}` |
+| Rotate key | `POST` | `transit/keys/{key}/rotate` |
+| Rewrap | `POST` | `transit/rewrap/{key}` |
+| Data key | `POST` | `transit/datakey/plaintext/{key}` |
+| Hash | `POST` | `transit/hash/{algorithm}` |
+| Random bytes | `POST` | `transit/random/{n}` |
+
+## Policy Requirements
+
+```hcl
+path "transit/encrypt/app-encryption"           { capabilities = ["create", "update"] }
+path "transit/decrypt/app-encryption"           { capabilities = ["create", "update"] }
+path "transit/sign/app-signing"                 { capabilities = ["create", "update"] }
+path "transit/verify/app-signing"               { capabilities = ["create", "update"] }
+path "transit/rewrap/app-encryption"            { capabilities = ["create", "update"] }
+path "transit/hmac/app-hmac"                    { capabilities = ["create", "update"] }
+path "transit/datakey/plaintext/app-encryption" { capabilities = ["create", "update"] }
+```
+</script>
+
+<script type="text/markdown" id="md-ssh">
+# Secret Engine: SSH
+
+**Class**: `com.example.vault.ssh.SshSecretService`
+
+## Two Modes
+
+| Mode | How It Works | Server Requirement |
+|------|-------------|-------------------|
+| **OTP** | Single-use password per host+user | `vault-ssh-helper` on server |
+| **Signed Certs** | Vault signs user's SSH public key with TTL | Install CA public key in `sshd_config` |
+
+## Vault Configuration
+
+Three separate SSH mounts:
+
+```bash
+# OTP mode
+vault secrets enable ssh
+vault write ssh/roles/otp-role \
+    key_type=otp default_user=ubuntu \
+    allowed_users="ubuntu,ec2-user,centos,admin" \
+    cidr_list="0.0.0.0/0"
+
+# Client certificate signing
+vault secrets enable -path=ssh-client-signer ssh
+vault write ssh-client-signer/config/ca generate_signing_key=true
+vault write ssh-client-signer/roles/my-role \
+    key_type=ca allow_user_certificates=true \
+    allowed_users="ubuntu,ec2-user,*" ttl=30m0s max_ttl=8h
+
+# Host certificate signing
+vault secrets enable -path=ssh-host-signer ssh
+vault write ssh-host-signer/config/ca generate_signing_key=true
+vault write ssh-host-signer/roles/host-role \
+    key_type=ca allow_host_certificates=true \
+    allowed_domains="*.example.com" ttl=87600h
+```
+
+## Java API
+
+```java
+SshSecretService ssh = new SshSecretService(vaultTemplate);
+// default mounts: ssh, ssh-client-signer, ssh-host-signer
+
+// Custom mounts:
+SshSecretService ssh = new SshSecretService(
+    "ssh", "ssh-client-signer", "ssh-host-signer", vaultTemplate);
+```
+
+## Mode 1: OTP
+
+### Generate an OTP
+
+```java
+SshOtpCredential otp = ssh.generateOtp("otp-role", "ubuntu", "10.0.1.100");
+
+otp.otp()                  // one-time password (masked in logs)
+otp.keyType()              // "otp"
+otp.username()             // "ubuntu"
+otp.targetIp()             // "10.0.1.100"
+otp.leaseDurationSeconds() // TTL in seconds
+```
+
+```bash
+ssh -o PasswordAuthentication=yes ubuntu@10.0.1.100
+# Enter the OTP when prompted — consumed on first use
+```
+
+### Verify an OTP (server-side)
+
+```java
+boolean valid = ssh.verifyOtp(otp.otp(), "ubuntu", "10.0.1.100");
+// This is what vault-ssh-helper does on the SSH server
+```
+
+## Mode 2: Signed Certificates
+
+### Sign a user's public key
+
+```java
+Map<String, String> extensions = Map.of(
+    "permit-pty", "",
+    "permit-port-forwarding", "",
+    "permit-agent-forwarding", ""
+);
+
+String publicKey = Files.readString(Path.of(System.getProperty("user.home") + "/.ssh/id_rsa.pub"));
+
+SshSignedCertificate cert = ssh.signUserPublicKey(
+    "my-role",
+    publicKey,
+    "ubuntu,ec2-user",      // valid principals (OS usernames)
+    Duration.ofMinutes(30),
+    extensions
+);
+
+cert.signedKeyContent()   // "ssh-rsa-cert-v01@openssh.com ..."
+cert.serialNumber()       // certificate serial number
+cert.validPrincipals()    // "ubuntu,ec2-user"
+cert.ttl()                // Duration.ofMinutes(30)
+```
+
+### Save the certificate
+
+```java
+ssh.saveCertificate(
+    cert,
+    Path.of(System.getProperty("user.home") + "/.ssh"),
+    "id_rsa"    // cert saved as id_rsa-cert.pub with chmod 600
+);
+```
+
+```bash
+ssh ubuntu@10.0.1.100
+# Uses id_rsa + id_rsa-cert.pub automatically
+# No password; cert proves identity; expires in 30 minutes
+```
+
+### Sign a server's host key
+
+```java
+SshSignedCertificate hostCert = ssh.signHostPublicKey(
+    "host-role",
+    Files.readString(Path.of("/etc/ssh/ssh_host_rsa_key.pub")),
+    "server1.example.com,server1",
+    Duration.ofHours(87600)    // host certs are long-lived
+);
+```
+
+### Get the CA public key
+
+```java
+String caPubKey = ssh.getCaPublicKey("ssh-client-signer");
+// Install on each SSH server:
+// echo caPubKey >> /etc/ssh/trusted-user-ca-keys.pem
+// sshd_config: TrustedUserCAKeys /etc/ssh/trusted-user-ca-keys.pem
+```
+
+## Inner Record Types
+
+```java
+record SshOtpCredential(
+    String otp, String keyType, String username,
+    String targetIp, String port, String leaseId,
+    long leaseDurationSeconds
+) {}
+
+record SshSignedCertificate(
+    String signedKeyContent, String serialNumber,
+    String validPrincipals, Duration ttl, String leaseId
+) {}
+```
+
+## OTP vs Signed Certificates
+
+| | OTP | Signed Certificates |
+|-|-----|---------------------|
+| Server requirement | `vault-ssh-helper` on every server | CA public key in `sshd_config` |
+| Client requirement | None (standard password auth) | Standard SSH key pair |
+| Traceability | Full audit log in Vault | Serial number in Vault audit log |
+| Revocation | Not needed (single use) | Let short-TTL certs expire |
+| Recommended for | Legacy servers | New infrastructure |
+
+## Vault Paths
+
+| Operation | HTTP | Vault Path |
+|-----------|------|------------|
+| Generate OTP | `POST` | `ssh/creds/{role}` |
+| Verify OTP | `POST` | `ssh/verify` |
+| Sign user public key | `POST` | `ssh-client-signer/sign/{role}` |
+| Sign host public key | `POST` | `ssh-host-signer/sign/{role}` |
+| Get client CA key | `GET` | `ssh-client-signer/config/ca` |
+</script>
+
+<script type="text/markdown" id="md-auth">
+# Authentication
+
+## Two Methods
+
+| Method | Class | When to Use |
+|--------|-------|-------------|
+| Token | `VaultConfig` | Local dev, CI jobs with short-lived tokens |
+| AppRole | `AppRoleVaultConfig` | Production applications |
+
+## Token Authentication (Dev/Test)
+
+**Class**: `com.example.vault.config.VaultConfig`
+
+```bash
+export VAULT_ADDR=http://127.0.0.1:8201
+export VAULT_TOKEN=root
+```
+
+```java
+VaultConfig config = VaultConfig.getInstance();
+
+// Optional: verify Vault is reachable and unsealed
+config.verifyConnectivity();   // throws RuntimeException if sealed or unreachable
+
+VaultTemplate vaultTemplate = config.getVaultTemplate();
+```
+
+`VaultConfig` is a thread-safe singleton. `getVaultTemplate()` is lazily initialized and synchronized. `verifyConnectivity()` calls `GET /v1/sys/health` and throws if Vault is sealed.
+
+**Defaults** (when env vars are not set):
+- `VAULT_ADDR` → `http://127.0.0.1:8200`
+- `VAULT_TOKEN` → `root`
+
+> The `docker-compose.yml` exposes Vault on port **8201**. Set `VAULT_ADDR=http://127.0.0.1:8201`.
+
+## AppRole Authentication (Production)
+
+**Class**: `com.example.vault.config.AppRoleVaultConfig`
+
+AppRole separates credentials into two parts:
+- **Role ID** — not a secret, baked into the container image or config map
+- **Secret ID** — secret, injected at runtime from CI/CD or init container
+
+```bash
+export VAULT_ADDR=https://vault.production.example.com
+export VAULT_ROLE_ID=<role-id-from-vault>
+export VAULT_SECRET_ID=<secret-id-injected-at-runtime>
+export VAULT_APPROLE_PATH=approle   # optional, default is "approle"
+```
+
+```java
+AppRoleVaultConfig appRoleConfig = new AppRoleVaultConfig();
+VaultTemplate vaultTemplate = appRoleConfig.buildVaultTemplate();
+// Calls auth/approle/login immediately and exchanges credentials for a Vault token
+```
+
+Throws `IllegalStateException` if `VAULT_ROLE_ID` or `VAULT_SECRET_ID` is missing.
+
+## Setting Up AppRole in Vault
+
+The setup script creates an AppRole named `myapp`:
+
+```bash
+vault auth enable approle
+
+vault write auth/approle/role/myapp \
+    token_ttl=1h \
+    token_max_ttl=4h \
+    token_policies="myapp-policy" \
+    bind_secret_id=true \
+    secret_id_ttl=24h \
+    secret_id_num_uses=100
+
+# Get Role ID (not a secret — embed in config)
+vault read -field=role_id auth/approle/role/myapp/role-id
+
+# Generate Secret ID (inject at runtime)
+vault write -field=secret_id -f auth/approle/role/myapp/secret-id
+```
+
+## Environment Variable Reference
+
+| Variable | Used By | Default | Description |
+|----------|---------|---------|-------------|
+| `VAULT_ADDR` | Both | `http://127.0.0.1:8200` | Vault server URL |
+| `VAULT_TOKEN` | `VaultConfig` | `root` | Auth token |
+| `VAULT_ROLE_ID` | `AppRoleVaultConfig` | — | AppRole Role ID (required) |
+| `VAULT_SECRET_ID` | `AppRoleVaultConfig` | — | AppRole Secret ID (required) |
+| `VAULT_APPROLE_PATH` | `AppRoleVaultConfig` | `approle` | AppRole mount path |
+</script>
+
+<script type="text/markdown" id="md-config">
+# Configuration Reference
+
+## Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `VAULT_ADDR` | `http://127.0.0.1:8200` | Vault server URL |
+| `VAULT_TOKEN` | `root` | Auth token (dev/test) |
+| `VAULT_ROLE_ID` | — | AppRole Role ID (production) |
+| `VAULT_SECRET_ID` | — | AppRole Secret ID (production) |
+| `VAULT_APPROLE_PATH` | `approle` | AppRole mount path |
+| `DB_HOST` | `localhost` | PostgreSQL hostname |
+| `DB_PORT` | `5432` | PostgreSQL port |
+| `DB_NAME` | `mydb` | PostgreSQL database name |
+
+`VaultConfig` checks env vars first, then Java system properties (`-DVAULT_ADDR=...`), then defaults.
+
+> `docker-compose.yml` exposes Vault on port **8201**. Set `VAULT_ADDR=http://127.0.0.1:8201`.
+
+## Vault Mount Paths
+
+| Engine | Mount | Notes |
+|--------|-------|-------|
+| Database | `database/` | Hardcoded prefix in `DynamicDatabaseSecretService` |
+| PKI Root CA | `pki/` | Configured by `setup-all.sh` |
+| PKI Intermediate CA | `pki_int/` | Passed to `PkiSecretService` constructor |
+| Transit | `transit/` | Used via `opsForTransit()` |
+| SSH OTP | `ssh/` | Passed to `SshSecretService` constructor |
+| SSH Client Signer | `ssh-client-signer/` | Passed to `SshSecretService` constructor |
+| SSH Host Signer | `ssh-host-signer/` | Passed to `SshSecretService` constructor |
+| AppRole Auth | `auth/approle/` | Used by `AppRoleVaultConfig` |
+
+## Vault Policy (myapp-policy)
+
+```hcl
+path "database/creds/readonly"  { capabilities = ["read"] }
+path "database/creds/readwrite" { capabilities = ["read"] }
+
+path "pki_int/issue/example-dot-com" { capabilities = ["create", "update"] }
+path "pki_int/sign/example-dot-com"  { capabilities = ["create", "update"] }
+path "pki_int/revoke"                { capabilities = ["create", "update"] }
+
+path "transit/encrypt/app-encryption"           { capabilities = ["create", "update"] }
+path "transit/decrypt/app-encryption"           { capabilities = ["create", "update"] }
+path "transit/sign/app-signing"                 { capabilities = ["create", "update"] }
+path "transit/verify/app-signing"               { capabilities = ["create", "update"] }
+path "transit/rewrap/app-encryption"            { capabilities = ["create", "update"] }
+path "transit/hmac/app-hmac"                    { capabilities = ["create", "update"] }
+path "transit/datakey/plaintext/app-encryption" { capabilities = ["create", "update"] }
+
+path "ssh/creds/otp-role"             { capabilities = ["create", "update"] }
+path "ssh-client-signer/sign/my-role" { capabilities = ["create", "update"] }
+
+path "sys/leases/renew"  { capabilities = ["create", "update"] }
+path "sys/leases/revoke" { capabilities = ["create", "update"] }
+```
+
+## Transit Key Constants
+
+```java
+TransitSecretService.ENCRYPTION_KEY  // "app-encryption"  AES-256-GCM
+TransitSecretService.SIGNING_KEY     // "app-signing"     ECDSA P-256
+TransitSecretService.RSA_KEY         // "app-rsa"         RSA-4096
+TransitSecretService.HMAC_KEY        // "app-hmac"        HMAC-SHA256
+```
+
+## PKI Role (example-dot-com)
+
+| Setting | Value |
+|---------|-------|
+| `allowed_domains` | `example.com`, `internal.example.com`, `test.example.com` |
+| `allow_subdomains` | `true` |
+| `allow_bare_domains` | `true` |
+| `max_ttl` | 720h (30 days) |
+| `key_type` | RSA / `key_bits`: 2048 |
+
+## SSH Roles
+
+**OTP role (otp-role):**
+
+| Setting | Value |
+|---------|-------|
+| `key_type` | `otp` |
+| `default_user` | `ubuntu` |
+| `allowed_users` | `ubuntu`, `ec2-user`, `centos`, `admin` |
+| `cidr_list` | `0.0.0.0/0` |
+
+**Client certificate role (my-role):**
+
+| Setting | Value |
+|---------|-------|
+| `key_type` | `ca` |
+| `allow_user_certificates` | `true` |
+| `allowed_users` | `ubuntu`, `ec2-user`, `*` |
+| `ttl` | 30m / `max_ttl`: 8h |
+| `algorithm_signer` | `rsa-sha2-256` |
+
+## AppRole (myapp)
+
+| Setting | Value |
+|---------|-------|
+| `token_ttl` | 1h |
+| `token_max_ttl` | 4h |
+| `token_policies` | `myapp-policy` |
+| `bind_secret_id` | `true` |
+| `secret_id_ttl` | 24h |
+| `secret_id_num_uses` | 100 |
+
+## Dependencies
+
+| Library | Version | Purpose |
+|---------|---------|---------|
+| `spring-vault-core` | 2.3.4 | Vault API client + lease management |
+| `hikaricp` | 5.1.0 | JDBC connection pooling |
+| `postgresql` | 42.7.2 | PostgreSQL JDBC driver |
+| `bcpkix-jdk18on` | 1.77 | PEM parsing / X.509 cert inspection |
+| `bcprov-jdk18on` | 1.77 | BouncyCastle crypto provider |
+| `okhttp` | 4.12.0 | HTTP client |
+| `jackson-databind` | 2.16.1 | JSON serialization |
+| `slf4j-api` | 2.0.12 | Logging API |
+| `logback-classic` | 1.4.14 | Logging implementation |
+| `testcontainers` | 1.19.6 | Real containers in tests |
+| `junit-jupiter` | 5.10.2 | Test framework |
+| `mockito-core` | 5.10.0 | Mocking in unit tests |
+</script>
+
+<script type="text/markdown" id="md-api">
+# Java API Reference
+
+## VaultConfig
+
+```java
+// Singleton access
+VaultConfig config = VaultConfig.getInstance();
+
+// Health check (throws RuntimeException if sealed or unreachable)
+config.verifyConnectivity();
+
+// Get the shared VaultTemplate
+VaultTemplate vaultTemplate = config.getVaultTemplate();
+
+// Accessors
+String addr  = config.getVaultAddr();   // e.g. "http://127.0.0.1:8201"
+String token = config.getVaultToken();  // e.g. "root"
+```
+
+## AppRoleVaultConfig
+
+Requires `VAULT_ROLE_ID` and `VAULT_SECRET_ID` environment variables.
+
+```java
+AppRoleVaultConfig config = new AppRoleVaultConfig();
+VaultTemplate vaultTemplate = config.buildVaultTemplate();
+
+// Print Vault CLI setup instructions to stdout
+AppRoleVaultConfig.printSetupInstructions();
+```
+
+## DynamicDatabaseSecretService
+
+```java
+DynamicDatabaseSecretService service = new DynamicDatabaseSecretService(
+    vaultTemplate, "localhost", "5432", "mydb");
+
+// Fetch credentials
+DatabaseCredential cred = service.getDynamicCredentials(String role);
+
+// Build HikariCP pool
+HikariDataSource ds = service.buildDataSource(DatabaseCredential cred);
+
+// Background auto-renewal — swaps DataSource atomically
+service.setupAutoRenewal(String role, AtomicReference<HikariDataSource> dsHolder);
+
+// Explicit revocation (drops DB user immediately)
+service.revokeLease(DatabaseCredential cred);
+
+// End-to-end demo
+service.runDemo(String role);
+```
+
+## DatabaseCredential
+
+```java
+record DatabaseCredential(
+    String username,
+    String password,
+    String leaseId,
+    long   leaseDurationSeconds,
+    String role
+)
+
+boolean nearExpiry = cred.isNearExpiry(thresholdSeconds, issuedAtEpochSeconds);
+```
+
+## PkiSecretService
+
+```java
+PkiSecretService pki = new PkiSecretService(
+    vaultTemplate, "pki_int", "example-dot-com");
+
+IssuedCertificate cert = pki.issueCertificate(
+    String commonName, Duration ttl,
+    String[] altNames,   // DNS SANs (nullable)
+    String[] ipSans      // IP SANs (nullable)
+);
+
+String signedCertPem = pki.signCsr(String csrPem, String commonName, Duration ttl);
+
+pki.revokeCertificate(String serialNumber);   // colon-separated hex
+
+pki.saveCertificateToFiles(IssuedCertificate cert, Path directory) throws IOException;
+
+X509Certificate x509 = pki.parseCertificate(String pemCert) throws Exception;
+
+pki.runDemo();
+```
+
+## IssuedCertificate
+
+```java
+record IssuedCertificate(
+    String commonName,
+    String certificatePem,       // tls.crt
+    String privateKeyPem,        // tls.key — SENSITIVE
+    String issuingCaPem,         // ca.crt
+    String caChainPem,           // chain.pem
+    String leaseId,
+    long   leaseDurationSeconds
+)
+// toString() → summary() — never exposes private key
+```
+
+## TransitSecretService
+
+```java
+TransitSecretService transit = new TransitSecretService(vaultTemplate);
+
+// Key name constants
+TransitSecretService.ENCRYPTION_KEY  // "app-encryption"
+TransitSecretService.SIGNING_KEY     // "app-signing"
+TransitSecretService.RSA_KEY         // "app-rsa"
+TransitSecretService.HMAC_KEY        // "app-hmac"
+
+// Encrypt / Decrypt
+String ciphertext = transit.encrypt(String keyName, String plaintext);
+String plaintext  = transit.decrypt(String keyName, String ciphertext);
+
+// Context-bound
+String ct = transit.encryptWithContext(String keyName, String plaintext, String context);
+String pt = transit.decryptWithContext(String keyName, String ciphertext, String context);
+
+// Batch (single API call)
+List<String> ciphertexts = transit.batchEncrypt(String keyName, List<String> plaintexts);
+List<String> plaintexts  = transit.batchDecrypt(String keyName, List<String> ciphertexts);
+
+// Sign / Verify
+String  signature = transit.sign(String keyName, String data);
+boolean valid     = transit.verify(String keyName, String data, String signature);
+
+// HMAC
+String  hmacValue = transit.hmac(String keyName, String data);
+boolean ok        = transit.verifyHmac(String keyName, String data, String hmacValue);
+
+// Key management
+transit.rotateKey(String keyName);
+String newCt = transit.rewrap(String keyName, String ciphertext);
+
+// Envelope encryption
+// Returns: {"plaintext": base64, "ciphertext": "vault:v{n}:..."}
+Map<String, String> dek = transit.generateDataKey(String keyName, int bits);
+
+// Crypto utilities
+String hexHash    = transit.hash(String data, String algorithm);
+String base64Rand = transit.generateRandomBytes(int numBytes);
+
+transit.runDemo();
+```
+
+## SshSecretService
+
+```java
+SshSecretService ssh = new SshSecretService(vaultTemplate);
+
+// Custom mount paths
+SshSecretService ssh = new SshSecretService(
+    String otpMountPath, String clientSignerMountPath,
+    String hostSignerMountPath, vaultTemplate);
+
+// OTP
+SshOtpCredential otp = ssh.generateOtp(String roleName, String username, String targetIp);
+boolean valid         = ssh.verifyOtp(String otp, String username, String ip);
+
+// Signed client certificate
+SshSignedCertificate cert = ssh.signUserPublicKey(
+    String roleName, String sshPublicKeyPem,
+    String validPrincipals,         // "ubuntu,ec2-user"
+    Duration ttl,
+    Map<String, String> extensions  // {"permit-pty": ""}
+);
+
+// Signed host certificate
+SshSignedCertificate hostCert = ssh.signHostPublicKey(
+    String roleName, String hostPublicKey,
+    String hostnames,               // "server1.example.com,server1"
+    Duration ttl
+);
+
+// CA public key (install on SSH servers as TrustedUserCAKeys)
+String caPubKey = ssh.getCaPublicKey(String mountPath);
+
+// Save cert to ~/.ssh/{keyBasename}-cert.pub with chmod 600
+ssh.saveCertificate(SshSignedCertificate cert, Path sshDir, String keyBasename) throws IOException;
+
+ssh.runDemo();
+```
+
+### SshSecretService Inner Records
+
+```java
+record SshOtpCredential(
+    String otp, String keyType, String username,
+    String targetIp, String port, String leaseId,
+    long leaseDurationSeconds
+) {}
+
+record SshSignedCertificate(
+    String signedKeyContent,    // write to ~/.ssh/id_rsa-cert.pub
+    String serialNumber,
+    String validPrincipals,
+    Duration ttl,
+    String leaseId
+) {}
+```
+</script>
+
+<script type="text/markdown" id="md-testing">
+# Testing
+
+## Overview
+
+Integration tests use **Testcontainers** to spin up a real HashiCorp Vault Docker container. No mocking — every test hits an actual Vault instance. Docker must be running.
+
+```bash
+mvn test
+```
+
+**Test file**: `src/test/java/com/example/vault/VaultIntegrationTest.java`
+
+## Test Setup
+
+A static `VaultContainer` is annotated with `@Container`, managed by `@Testcontainers`. Testcontainers handles the full lifecycle.
+
+```java
+static final VaultContainer<?> vault = new VaultContainer<>("hashicorp/vault:latest")
+    .withVaultToken(ROOT_TOKEN)
+    .withEnv("SKIP_SETCAP", "true")
+    .withEnv("VAULT_LOCAL_CONFIG", "{\"disable_mlock\":true,\"ui\":false}")
+    .withInitCommand(
+        "secrets enable database",
+        "secrets enable pki",
+        "secrets enable transit",
+        "secrets enable ssh",
+        "secrets enable -path=ssh-client-signer ssh",
+        "write -f transit/keys/app-encryption",
+        "write transit/keys/app-signing type=ecdsa-p256",
+        // ... more setup
+    );
+```
+
+`SKIP_SETCAP=true` and `disable_mlock=true` allow the container to run without `CAP_IPC_LOCK`.
+
+`@BeforeAll` wires the container URL into `VaultConfig`:
+
+```java
+System.setProperty("VAULT_ADDR", "http://" + vault.getHost() + ":" + vault.getFirstMappedPort());
+System.setProperty("VAULT_TOKEN", ROOT_TOKEN);
+vaultTemplate = VaultConfig.getInstance().getVaultTemplate();
+```
+
+## Transit Tests
+
+| Test | What It Verifies |
+|------|-----------------|
+| `testEncryptDecrypt` | Roundtrip: encrypt → decrypt equals original |
+| `testEncryptProducesDifferentCiphertexts` | Distinct plaintexts → distinct ciphertexts |
+| `testBatchEncryptDecrypt` | Single API call encrypts and decrypts 4 items correctly |
+| `testSignVerify` | ECDSA signature verifies against original payload |
+| `testTamperedPayloadFailsVerification` | Modified payload does NOT verify |
+| `testKeyRotationBackwardCompatibility` | Old ciphertext still decrypts after key rotation |
+| `testRewrap` | Rewrapped ciphertext decrypts to same plaintext as original |
+| `testContextBoundEncryption` | Different contexts produce different ciphertexts |
+
+## PKI Tests
+
+| Test | What It Verifies |
+|------|-----------------|
+| `testIssueCertificate` | PEM fields non-null, correct CN, PEM headers present |
+| `testParseCertificate` | X509Certificate subject matches CN, not expired |
+| `testUniqueCertificates` | Two issuances produce different cert + key PEMs |
+
+> Uses the `pki/` mount (Root CA directly) with role `test-role`. The demo application uses `pki_int/`.
+
+## SSH Tests
+
+| Test | What It Verifies |
+|------|-----------------|
+| `testSignUserPublicKey` | Signed cert is non-null and is an SSH certificate |
+| `testGetCaPublicKey` | CA pub key contains `ssh-rsa` or `ecdsa` |
+
+> OTP tests are not included — OTP mode requires `vault-ssh-helper` running on the target host.
+
+## What Is Not Tested
+
+- **Database engine** — Requires a live PostgreSQL with a `CREATE ROLE`-capable user. Testcontainers PostgreSQL module is in the POM and available to add.
+- **SSH OTP verification** — Server-side; requires `vault-ssh-helper` on the target.
+- **AppRole auth** — Production auth path; not exercised in tests.
+- **Lease auto-renewal** — `setupAutoRenewal()` requires a background thread and real DB.
+
+## Running Specific Tests
+
+```bash
+# Transit tests only
+mvn test -Dtest="VaultIntegrationTest\$TransitTests"
+
+# PKI tests only
+mvn test -Dtest="VaultIntegrationTest\$PkiTests"
+
+# SSH tests only
+mvn test -Dtest="VaultIntegrationTest\$SshTests"
+
+# Connectivity check only
+mvn test -Dtest="VaultIntegrationTest#testVaultConnectivity"
+```
+
+## Test Dependencies
+
+| Library | Purpose |
+|---------|---------|
+| `testcontainers:vault` | Manages `hashicorp/vault` Docker container |
+| `testcontainers:junit-jupiter` | `@Testcontainers` and `@Container` annotations |
+| `testcontainers:postgresql` | Available for future DB integration tests |
+| `junit-jupiter` | Test framework |
+| `mockito-core` | Available for unit test mocking |
+</script>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     JavaScript
+     ═══════════════════════════════════════════════════════════════════════════ -->
+<script>
+  // ── Markdown rendering setup ────────────────────────────────────────────────
+  marked.setOptions({
+    highlight: (code, lang) => {
+      if (lang && hljs.getLanguage(lang)) {
+        return hljs.highlight(code, { language: lang }).value;
+      }
+      return hljs.highlightAuto(code).value;
+    },
+    breaks: false,
+    gfm: true
+  });
+
+  // ── Page map ────────────────────────────────────────────────────────────────
+  const pages = [
+    { id: 'home',             md: 'md-home'          },
+    { id: 'architecture',     md: 'md-architecture'  },
+    { id: 'getting-started',  md: 'md-getting-started'},
+    { id: 'db',               md: 'md-db'            },
+    { id: 'pki',              md: 'md-pki'           },
+    { id: 'transit',          md: 'md-transit'       },
+    { id: 'ssh',              md: 'md-ssh'           },
+    { id: 'auth',             md: 'md-auth'          },
+    { id: 'config',           md: 'md-config'        },
+    { id: 'api',              md: 'md-api'           },
+    { id: 'testing',          md: 'md-testing'       },
+  ];
+
+  // ── Render all pages ────────────────────────────────────────────────────────
+  pages.forEach(({ id, md }) => {
+    const src = document.getElementById(md).textContent;
+    const el  = document.getElementById('page-' + id);
+    el.innerHTML = marked.parse(src);
+    // Highlight any code blocks not caught by marked
+    el.querySelectorAll('pre code').forEach(block => {
+      if (!block.classList.contains('hljs')) hljs.highlightElement(block);
+    });
+  });
+
+  // ── Tab switching ───────────────────────────────────────────────────────────
+  function showPage(id) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+
+    const page = document.getElementById('page-' + id);
+    if (page) {
+      page.classList.add('active');
+      page.closest('.content').scrollTop = 0;
+    }
+
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+      if (btn.getAttribute('onclick') === `showPage('${id}')`) {
+        btn.classList.add('active');
+      }
+    });
+
+    // Update URL hash
+    history.replaceState(null, '', '#' + id);
+  }
+
+  // ── Search / filter nav ─────────────────────────────────────────────────────
+  function filterNav(query) {
+    const q = query.toLowerCase().trim();
+    const sections = { general: true, engines: true, ref: true };
+
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+      const label = btn.dataset.label.toLowerCase();
+      btn.style.display = (!q || label.includes(q)) ? '' : 'none';
+    });
+
+    // Hide section headers if all buttons in section are hidden
+    const btns = [...document.querySelectorAll('.nav-btn')];
+    const groups = {
+      general: btns.slice(0, 3),
+      engines: btns.slice(3, 7),
+      ref:     btns.slice(7),
+    };
+    Object.entries(groups).forEach(([key, group]) => {
+      const header = document.getElementById('nav-group-' + key);
+      const anyVisible = group.some(b => b.style.display !== 'none');
+      header.style.display = anyVisible ? '' : 'none';
+    });
+  }
+
+  // ── Deep link via hash ──────────────────────────────────────────────────────
+  const hash = window.location.hash.replace('#', '');
+  if (hash && document.getElementById('page-' + hash)) {
+    showPage(hash);
+  }
+</script>
+
+</body>
+</html>
