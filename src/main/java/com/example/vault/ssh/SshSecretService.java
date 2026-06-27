@@ -137,7 +137,7 @@ public class SshSecretService {
                     (String) data.get("key_type"),
                     username,
                     targetIp,
-                    (String) data.get("port"),
+                    String.valueOf(data.get("port")),  // Vault returns port as Integer
                     response.getLeaseId(),
                     response.getLeaseDuration()
             );
@@ -224,9 +224,6 @@ public class SshSecretService {
             if (extensions != null && !extensions.isEmpty()) {
                 request.put("extensions", extensions);
             }
-
-            request.put("key_id", "user-" + System.getProperty("user.name", "unknown")
-                    + "-" + System.currentTimeMillis());
 
             VaultResponse response = vaultTemplate.write(
                     clientSignerMountPath + "/sign/" + roleName, request);
@@ -381,8 +378,29 @@ public class SshSecretService {
         // ─── Signed Certificate Demo ───
         System.out.println("── Mode 2: Signed SSH Certificates ────────────────────");
 
-        // Simulate a real user public key
-        String simulatedPublicKey = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC1234... user@laptop";
+        // Use the real local SSH public key if available; skip otherwise
+        Path[] candidates = {
+            Path.of(System.getProperty("user.home"), ".ssh", "id_ed25519.pub"),
+            Path.of(System.getProperty("user.home"), ".ssh", "id_rsa.pub"),
+            Path.of(System.getProperty("user.home"), ".ssh", "id_ecdsa.pub"),
+        };
+        String simulatedPublicKey = null;
+        for (Path p : candidates) {
+            if (Files.exists(p)) {
+                try {
+                    simulatedPublicKey = Files.readString(p).trim();
+                    System.out.println("  Using local key: " + p);
+                } catch (IOException e) {
+                    log.warn("Could not read {}: {}", p, e.getMessage());
+                }
+                break;
+            }
+        }
+        if (simulatedPublicKey == null) {
+            System.out.println("  [Skip] No SSH public key found in ~/.ssh/");
+            System.out.println("         Run 'ssh-keygen' to generate one, then re-run the demo.");
+            return;
+        }
 
         Map<String, String> extensions = new LinkedHashMap<>();
         extensions.put("permit-pty",              "");

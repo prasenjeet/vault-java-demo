@@ -12,6 +12,7 @@
 | `DB_HOST` | `localhost` | PostgreSQL hostname |
 | `DB_PORT` | `5432` | PostgreSQL port |
 | `DB_NAME` | `mydb` | PostgreSQL database name |
+| `METRICS_PORT` | `8080` | Port for Prometheus `/metrics` HTTP server |
 
 `VaultConfig` checks env vars first, then Java system properties (e.g., `-DVAULT_ADDR=...`), then falls back to the defaults above.
 
@@ -134,6 +135,9 @@ public static final String HMAC_KEY        = "app-hmac";         // HMAC-SHA256
 | `bcprov-jdk18on` | 1.77 | BouncyCastle crypto provider |
 | `okhttp` | 4.12.0 | HTTP client (used by Spring Vault) |
 | `jackson-databind` | 2.16.1 | JSON serialization |
+| `simpleclient` | 0.16.0 | Prometheus Java client — counters / histograms / gauges |
+| `simpleclient_httpserver` | 0.16.0 | Embedded HTTP server exposing `/metrics` |
+| `simpleclient_hotspot` | 0.16.0 | JVM metrics (heap, GC, threads, classloading) |
 | `slf4j-api` | 2.0.12 | Logging API |
 | `logback-classic` | 1.4.14 | Logging implementation |
 | `commons-lang3` | 3.14.0 | Utilities |

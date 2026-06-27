@@ -50,7 +50,7 @@ services:
     # Give vault user permission to write its data directory
     user: "100:1000"
     healthcheck:
-      test: ["CMD", "vault", "status"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:8201/v1/sys/health"]
       interval: 5s
       timeout: 5s
       retries: 15

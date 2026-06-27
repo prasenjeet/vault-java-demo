@@ -24,6 +24,15 @@ vault-java-demo/
 ├── scripts/
 │   ├── setup-all.sh          ← Configure all Vault engines (run once)
 │   └── init-db.sql           ← PostgreSQL schema + Vault user
+├── monitoring/
+│   ├── prometheus/
+│   │   └── prometheus.yml    ← Scrape config (targets Java app on host)
+│   └── grafana/
+│       ├── dashboards/
+│       │   └── vault-demo.json           ← Pre-built Vault dashboard
+│       └── provisioning/
+│           ├── dashboards/dashboard.yml
+│           └── datasources/prometheus.yml
 └── src/
     ├── main/java/com/example/vault/
     │   ├── VaultDemoApplication.java     ← Main entry point
@@ -38,6 +47,8 @@ vault-java-demo/
     │   │   └── TransitSecretService.java
     │   ├── ssh/
     │   │   └── SshSecretService.java
+    │   ├── metrics/
+    │   │   └── MetricsService.java       ← Prometheus metrics + embedded HTTP server
     │   └── model/
     │       ├── DatabaseCredential.java
     │       └── IssuedCertificate.java
@@ -52,13 +63,25 @@ vault-java-demo/
 ### 1. Start Infrastructure
 
 ```bash
-# Start Vault + PostgreSQL
+# Start Vault + PostgreSQL + Prometheus + Grafana
 docker compose up -d
+
+# Optional: also start PgAdmin (DB browser UI)
+docker compose --profile tools up -d
 
 # Verify
 docker ps
 curl http://localhost:8201/v1/sys/health
 ```
+
+**Service URLs:**
+
+| Service    | URL                         | Credentials       |
+|------------|-----------------------------|-------------------|
+| Vault UI   | http://localhost:8201/ui    | token: `root`     |
+| Prometheus | http://localhost:9090       | —                 |
+| Grafana    | http://localhost:3000       | admin / admin     |
+| PgAdmin    | http://localhost:5050       | admin@admin.com / admin *(--profile tools)* |
 
 ### 2. Configure Vault Secret Engines
 
@@ -92,6 +115,21 @@ mvn exec:java -Dexec.mainClass=com.example.vault.VaultDemoApplication -Dexec.arg
 # Requires Docker (Testcontainers spins up real Vault)
 mvn test
 ```
+
+### 5. View Metrics
+
+Once the app is running, Prometheus scrapes metrics from the embedded HTTP server:
+
+```
+http://localhost:8080/metrics
+```
+
+Open Grafana at http://localhost:3000 — the **Vault Demo** dashboard is pre-provisioned and shows:
+- Operations per second by engine and outcome
+- Latency histograms (p50 / p95 / p99)
+- Transit key rotations
+- Active credential / certificate TTLs
+- JVM heap, GC, and thread metrics
 
 ---
 
@@ -292,6 +330,58 @@ vault read -field=public_key ssh-client-signer/config/ca >> /etc/ssh/trusted-use
 
 ---
 
+## Monitoring
+
+The demo includes a full observability stack with zero extra configuration required.
+
+### Architecture
+
+```
+Java App (MetricsService)
+    │  exposes /metrics on :8080
+    ▼
+Prometheus (:9090)
+    │  scrapes every 15s
+    ▼
+Grafana (:3000)
+    │  pre-provisioned dashboard
+    ▼
+vault-demo.json dashboard
+```
+
+### Exposed Prometheus Metrics
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `vault_operations_total` | Counter | `engine`, `operation`, `status` | All Vault API calls, tagged success/error |
+| `vault_operation_duration_seconds` | Histogram | `engine`, `operation` | Latency per operation (11 buckets, 1ms–5s) |
+| `vault_transit_key_rotations_total` | Counter | `key` | Transit key rotation count |
+| `vault_db_credential_ttl_seconds` | Gauge | `role` | TTL of most recently issued DB credential |
+| `vault_pki_cert_ttl_seconds` | Gauge | `role` | TTL of most recently issued PKI certificate |
+| `vault_ssh_cert_ttl_seconds` | Gauge | `principals` | TTL of most recently signed SSH certificate |
+| `jvm_*` | Various | — | JVM heap, GC, threads, classloading (auto) |
+
+### Java Usage
+
+```java
+// Time an operation and record its outcome
+Histogram.Timer timer = MetricsService.startTimer("transit", "encrypt");
+try {
+    String ct = transit.encrypt("app-encryption", plaintext);
+    MetricsService.recordSuccess("transit", "encrypt");
+    return ct;
+} catch (Exception e) {
+    MetricsService.recordError("transit", "encrypt");
+    throw e;
+} finally {
+    timer.observeDuration();
+}
+```
+
+The `MetricsService` singleton starts an embedded HTTP server on `METRICS_PORT` (default `8080`) that Prometheus scrapes. The server thread is non-daemon so the JVM stays alive after all demos complete, giving Prometheus time to scrape before exit.
+
+---
+
 ## Authentication Methods
 
 ### Dev/Test: Token Auth
@@ -327,6 +417,7 @@ VaultTemplate vaultTemplate = appRoleConfig.buildVaultTemplate();
 | `DB_HOST` | `localhost` | PostgreSQL host |
 | `DB_PORT` | `5432` | PostgreSQL port |
 | `DB_NAME` | `mydb` | Database name |
+| `METRICS_PORT` | `8080` | Prometheus `/metrics` HTTP server port |
 
 ---
 
@@ -334,11 +425,16 @@ VaultTemplate vaultTemplate = appRoleConfig.buildVaultTemplate();
 
 | Library | Version | Purpose |
 |---------|---------|---------|
-| `spring-vault-core` | 6.2.0 | Vault API client + lease management |
+| `spring-vault-core` | 2.3.4 | Vault API client + lease management |
 | `hikaricp` | 5.1.0 | JDBC connection pooling |
 | `postgresql` | 42.7.2 | PostgreSQL JDBC driver |
 | `bcpkix-jdk18on` | 1.77 | PEM parsing / X.509 cert inspection |
+| `bcprov-jdk18on` | 1.77 | Bouncy Castle crypto provider |
 | `okhttp` | 4.12.0 | HTTP client |
 | `jackson-databind` | 2.16.1 | JSON serialization |
+| `simpleclient` | 0.16.0 | Prometheus Java client — counters/histograms/gauges |
+| `simpleclient_httpserver` | 0.16.0 | Embedded HTTP server for `/metrics` |
+| `simpleclient_hotspot` | 0.16.0 | JVM metrics (heap, GC, threads) |
+| `commons-lang3` | 3.14.0 | General utilities |
 | `testcontainers-vault` | 1.19.6 | Real Vault in integration tests |
 | `testcontainers-postgresql` | 1.19.6 | Real PostgreSQL in tests |

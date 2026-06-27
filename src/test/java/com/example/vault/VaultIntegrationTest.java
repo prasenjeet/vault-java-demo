@@ -65,6 +65,8 @@ class VaultIntegrationTest {
                     "write pki/roles/test-role " +
                             "allowed_domains=test.example.com " +
                             "allow_subdomains=true " +
+                            "allow_ip_sans=true " +
+                            "allow_any_name=true " +
                             "max_ttl=72h",
 
                     // SSH Client CA
@@ -73,6 +75,7 @@ class VaultIntegrationTest {
                             "key_type=ca " +
                             "allow_user_certificates=true " +
                             "allowed_users=ubuntu,ec2-user " +
+                            "allowed_extensions=permit-pty,permit-port-forwarding " +
                             "ttl=30m"
             );
 
@@ -320,11 +323,14 @@ class VaultIntegrationTest {
 
         SshSecretService service;
 
-        // Realistic test SSH public key
+        // Valid 2048-bit RSA test key (generated for tests, not used for real auth)
         static final String TEST_PUB_KEY =
-                "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC7GBvVGDjZ1XkP8E0F5s7v3Jk8Bt2" +
-                "XnH9RmYwP4QdLaTbRiGhTk3p5VzNu6YcFJqEDmK1oWsX9gHj8P2eN7AoB1XxYzQd" +
-                "test-key-do-not-use@testcontainer";
+                "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDGNPrhgOaGfp1dOwR7RxSAoDSrBqzW" +
+                "+zbRqnIYf1foUvUAoXmwNGUlFsypTqiUnksXiUF/6so5ymwfuyKj4CLJdGQNZYZU0Vp6" +
+                "wrUnZ2TFBU7nj1sixJZ+dFNlLu2BYZCCLdY7If9rtGBMDwaIqWh7O7XzzGzfH4LE7nip" +
+                "MJ3y5eb3i6Fi7o6nxMtMpT9/vumy47u7+yIUnkFPD/7A/xqAo76Hl2pTU9o6+pQ5SRf" +
+                "I/HfCMJ40L5qfbd8rG5BH90AbxpGPoCC4+5Sog7PRjyeFojlPjT7auGhk3xCyZPiC7f" +
+                "AElRCpdcHwfP2uYnpq8UFVZ6MJq5r/w+CiKoeL7YJR test@testcontainer";
 
         @BeforeEach
         void init() {

@@ -1,5 +1,64 @@
 # Java API Reference
 
+## MetricsService
+
+**Package**: `com.example.vault.metrics`
+
+Thread-safe singleton. Registers all Prometheus metrics at class-load and starts an embedded HTTP server on `METRICS_PORT` (default `8080`).
+
+```java
+// Get singleton instance (initializes port from METRICS_PORT env var)
+MetricsService metrics = MetricsService.getInstance();
+
+// Start /metrics HTTP server (non-daemon; keeps JVM alive after main() returns)
+metrics.startServer();
+
+// Query the configured port
+int port = metrics.getPort();   // default: 8080
+
+// ── Static instrumentation helpers ──────────────────────────────────────────
+
+// Start a latency timer for an operation
+Histogram.Timer timer = MetricsService.startTimer(String engine, String operation);
+// ... call Vault ...
+timer.observeDuration();   // always call in finally block
+
+// Increment the operations counter — call after the Vault call succeeds
+MetricsService.recordSuccess(String engine, String operation);
+
+// Increment the error counter — call in catch block
+MetricsService.recordError(String engine, String operation);
+
+// ── Metric instances (static, pre-registered) ────────────────────────────────
+
+Counter   MetricsService.VAULT_OPERATIONS            // labels: engine, operation, status
+Histogram MetricsService.VAULT_OPERATION_DURATION    // labels: engine, operation
+Counter   MetricsService.TRANSIT_KEY_ROTATIONS       // labels: key
+Gauge     MetricsService.DB_CREDENTIAL_TTL           // labels: role
+Gauge     MetricsService.PKI_CERT_TTL                // labels: role
+Gauge     MetricsService.SSH_CERT_TTL                // labels: principals
+```
+
+Typical usage pattern inside a service method:
+
+```java
+Histogram.Timer timer = MetricsService.startTimer("transit", "encrypt");
+try {
+    String result = transitOps.encrypt(keyName, plaintext);
+    MetricsService.recordSuccess("transit", "encrypt");
+    return result;
+} catch (Exception e) {
+    MetricsService.recordError("transit", "encrypt");
+    throw e;
+} finally {
+    timer.observeDuration();
+}
+```
+
+See [Monitoring](Monitoring.md) for PromQL examples and the full metrics reference.
+
+---
+
 ## VaultConfig
 
 **Package**: `com.example.vault.config`

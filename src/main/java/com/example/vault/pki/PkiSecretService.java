@@ -127,11 +127,14 @@ public class PkiSecretService {
 
             var certData = response.getData();
 
+            // Spring Vault 2.x hardcodes format=der in VaultPkiTemplate, so
+            // getCertificate/getPrivateKey/getIssuingCaCertificate return raw base64 DER.
+            // Convert each to PEM so callers receive the expected PEM-encoded strings.
             IssuedCertificate cert = new IssuedCertificate(
                     commonName,
-                    certData.getCertificate(),
-                    certData.getPrivateKey(),
-                    certData.getIssuingCaCertificate(),
+                    derToPem(certData.getCertificate(), "CERTIFICATE"),
+                    derToPem(certData.getPrivateKey(), "RSA PRIVATE KEY"),
+                    derToPem(certData.getIssuingCaCertificate(), "CERTIFICATE"),
                     "",
                     response.getLeaseId(),
                     response.getLeaseDuration()
@@ -327,5 +330,16 @@ public class PkiSecretService {
         } catch (Exception e) {
             return "unknown";
         }
+    }
+
+    // Spring Vault 2.x requests format=der from Vault PKI, so the raw fields are
+    // base64-encoded DER bytes with no PEM armour. Wrap them per RFC 7468.
+    private static String derToPem(String derBase64, String type) {
+        String clean = derBase64.replaceAll("\\s+", "");
+        StringBuilder lines = new StringBuilder();
+        for (int i = 0; i < clean.length(); i += 64) {
+            lines.append(clean, i, Math.min(i + 64, clean.length())).append('\n');
+        }
+        return "-----BEGIN " + type + "-----\n" + lines + "-----END " + type + "-----\n";
     }
 }

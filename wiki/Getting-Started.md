@@ -18,10 +18,13 @@ export JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home
 ## Step 1 — Start Infrastructure
 
 ```bash
-# Start Vault (port 8201) and PostgreSQL (port 5432)
+# Start all services: Vault, PostgreSQL, Prometheus, Grafana
 docker compose up -d
 
-# Confirm both containers are running
+# Optional: also start PgAdmin (DB browser UI on port 5050)
+docker compose --profile tools up -d
+
+# Confirm containers are running
 docker ps
 
 # Verify Vault health
@@ -30,8 +33,14 @@ curl http://localhost:8201/v1/sys/health
 ```
 
 The `docker-compose.yml` starts:
-- Vault in dev mode with root token `root`, listening on port `8201`
-- PostgreSQL with database `mydb`, user `postgres`, password `postgres`
+
+| Service    | Port | Details |
+|------------|------|---------|
+| Vault      | 8201 | Dev mode, root token `root` |
+| PostgreSQL | 5432 | DB `mydb`, user `postgres` / `postgres` |
+| Prometheus | 9090 | Scrapes Java app on `host.docker.internal:8080` |
+| Grafana    | 3000 | admin / admin — Vault Demo dashboard pre-provisioned |
+| PgAdmin    | 5050 | admin@admin.com / admin — only with `--profile tools` |
 
 ## Step 2 — Configure Vault Secret Engines
 
@@ -80,7 +89,19 @@ export DB_PORT=5432
 export DB_NAME=mydb
 ```
 
-## Step 4 — Run Integration Tests
+## Step 4 — View Metrics
+
+Once the Java app is running, open:
+
+- **Raw metrics**: http://localhost:8080/metrics
+- **Prometheus UI**: http://localhost:9090 — query `vault_operations_total` or `vault_operation_duration_seconds`
+- **Grafana dashboard**: http://localhost:3000 — open the pre-built **Vault Demo** dashboard (admin / admin)
+
+The app keeps the metrics server alive after all demos finish. Press **Ctrl+C** to exit.
+
+See [Monitoring](Monitoring.md) for the full metrics reference and PromQL examples.
+
+## Step 5 — Run Integration Tests
 
 ```bash
 # Testcontainers spins up real Vault and PostgreSQL automatically
@@ -127,3 +148,7 @@ vault write ssh-client-signer/sign/my-role public_key=@~/.ssh/id_rsa.pub
 **`PostgreSQL connection refused`** — PostgreSQL container is not ready yet. Wait ~5s after `docker compose up -d` and retry.
 
 **`VAULT_ROLE_ID and VAULT_SECRET_ID must be set`** — You instantiated `AppRoleVaultConfig` without setting those env vars. Use `VaultConfig` (token auth) for local dev.
+
+**`Could not start metrics server on port 8080`** — Port 8080 is already in use. Set `METRICS_PORT=9091` (or any free port) before running the app, and update `monitoring/prometheus/prometheus.yml` to match.
+
+**Grafana shows "No data"** — Prometheus hasn't scraped yet (15s delay) or the Java app isn't running. Confirm `http://localhost:8080/metrics` is reachable from the host.

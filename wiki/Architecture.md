@@ -8,6 +8,9 @@
 │                                                                     │
 │  VaultDemoApplication                                               │
 │        │                                                            │
+│        ├─── MetricsService (singleton)                              │
+│        │       └── Prometheus HTTP server (:8080/metrics)           │
+│        │                                                            │
 │        ├─── VaultConfig (singleton)                                 │
 │        │       └── VaultTemplate (Spring Vault)                     │
 │        │                                                            │
@@ -35,13 +38,20 @@
 │  Dev mode (unsealed) │     │  DB: mydb             │
 │  Root token: root    │     │  User: postgres       │
 └──────────────────────┘     └──────────────────────┘
+
+┌──────────────────────┐     ┌──────────────────────┐
+│  Prometheus          │     │  Grafana              │
+│  Port: 9090          │────►│  Port: 3000           │
+│  Scrapes :8080/metrics│    │  admin / admin        │
+└──────────────────────┘     │  Vault Demo dashboard │
+                             └──────────────────────┘
 ```
 
 ## Package Structure
 
 ```
 com.example.vault/
-├── VaultDemoApplication.java      Main entry point; CLI arg routing
+├── VaultDemoApplication.java      Main entry point; CLI arg routing; starts MetricsService
 ├── config/
 │   ├── VaultConfig.java           Singleton; token auth; VaultTemplate factory
 │   └── AppRoleVaultConfig.java    Production AppRole authentication
@@ -53,6 +63,8 @@ com.example.vault/
 │   └── TransitSecretService.java
 ├── ssh/
 │   └── SshSecretService.java
+├── metrics/
+│   └── MetricsService.java        Singleton; Prometheus registry + embedded HTTP server
 └── model/
     ├── DatabaseCredential.java    Record: username, password, leaseId, ttl, role
     └── IssuedCertificate.java     Record: certPem, keyPem, caPem, leaseId, ttl
@@ -77,6 +89,11 @@ All secret engines use `VaultTemplate` from Spring Vault (`spring-vault-core`). 
 
 ### Private keys never leave Vault (Transit)
 All Transit operations send plaintext to Vault and receive ciphertext back. The private signing keys (ECDSA P-256, RSA-4096) are stored in Vault and are never returned to the application.
+
+### MetricsService singleton
+`MetricsService` mirrors the `VaultConfig` singleton pattern. All Prometheus metrics are static fields registered at class-load time. The embedded HTTP server is started once in `main()` via `startServer()`, and the non-daemon server thread keeps the JVM alive after all demos complete so Prometheus can scrape the final state.
+
+Each service (Transit, PKI, SSH, DB) calls the static helpers `MetricsService.startTimer()`, `recordSuccess()`, and `recordError()` around every Vault operation.
 
 ## Data Flow Examples
 

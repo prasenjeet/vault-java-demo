@@ -49,7 +49,7 @@
         <!-- Test -->
         <junit.version>5.10.2</junit.version>
         <mockito.version>5.10.0</mockito.version>
-        <testcontainers.version>1.19.6</testcontainers.version>
+        <testcontainers.version>1.20.4</testcontainers.version>
     </properties>
 
     <dependencies>
@@ -200,6 +200,13 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.2.5</version>
+                <configuration>
+                    <environmentVariables>
+                        <!-- Docker Desktop 4.x returns a stub response for API versions below 1.41;
+                             force docker-java to use 1.41 so the proxy socket returns real data. -->
+                        <DOCKER_API_VERSION>1.41</DOCKER_API_VERSION>
+                    </environmentVariables>
+                </configuration>
             </plugin>
             <!-- Shade plugin for fat JAR -->
             <plugin>
@@ -211,6 +218,18 @@
                         <phase>package</phase>
                         <goals><goal>shade</goal></goals>
                         <configuration>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                        <exclude>META-INF/LICENSE*</exclude>
+                                        <exclude>META-INF/NOTICE*</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                     <mainClass>com.example.vault.VaultDemoApplication</mainClass>
