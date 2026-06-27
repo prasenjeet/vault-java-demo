@@ -1,7 +1,9 @@
 package com.example.vault.db;
 
 import com.example.vault.config.VaultConfig;
+import com.example.vault.metrics.MetricsService;
 import com.example.vault.model.DatabaseCredential;
+import io.prometheus.client.Histogram;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.slf4j.Logger;
@@ -89,22 +91,31 @@ public class DynamicDatabaseSecretService {
      */
     public DatabaseCredential getDynamicCredentials(String role) {
         log.info("Requesting dynamic DB credentials for role: {}", role);
+        Histogram.Timer timer = MetricsService.startTimer("database", "get_credentials");
+        try {
+            VaultResponse response = vaultTemplate.read(DB_CREDS_PATH + role);
+            if (response == null || response.getData() == null) {
+                throw new RuntimeException("No credentials returned from Vault for role: " + role);
+            }
 
-        VaultResponse response = vaultTemplate.read(DB_CREDS_PATH + role);
-        if (response == null || response.getData() == null) {
-            throw new RuntimeException("No credentials returned from Vault for role: " + role);
+            Map<String, Object> data = response.getData();
+            String username    = (String) data.get("username");
+            String password    = (String) data.get("password");
+            String leaseId     = response.getLeaseId();
+            long leaseDuration = response.getLeaseDuration();
+
+            MetricsService.DB_CREDENTIAL_TTL.labels(role).set(leaseDuration);
+            MetricsService.recordSuccess("database", "get_credentials");
+            log.info("Dynamic credentials issued → user={}, lease_id={}, ttl={}s",
+                    username, leaseId, leaseDuration);
+
+            return new DatabaseCredential(username, password, leaseId, leaseDuration, role);
+        } catch (Exception e) {
+            MetricsService.recordError("database", "get_credentials");
+            throw e;
+        } finally {
+            timer.observeDuration();
         }
-
-        Map<String, Object> data = response.getData();
-        String username      = (String) data.get("username");
-        String password      = (String) data.get("password");
-        String leaseId       = response.getLeaseId();
-        long leaseDuration   = response.getLeaseDuration();
-
-        log.info("Dynamic credentials issued → user={}, lease_id={}, ttl={}s",
-                username, leaseId, leaseDuration);
-
-        return new DatabaseCredential(username, password, leaseId, leaseDuration, role);
     }
 
     // ── 2. Build HikariCP DataSource with Dynamic Credentials ─────────────────
@@ -199,11 +210,16 @@ public class DynamicDatabaseSecretService {
      * Call this on application shutdown for clean resource release.
      */
     public void revokeLease(DatabaseCredential cred) {
+        Histogram.Timer timer = MetricsService.startTimer("database", "revoke_lease");
         try {
             vaultTemplate.write("sys/leases/revoke", Map.of("lease_id", cred.leaseId()));
+            MetricsService.recordSuccess("database", "revoke_lease");
             log.info("Lease revoked: {} (user: {})", cred.leaseId(), cred.username());
         } catch (Exception e) {
+            MetricsService.recordError("database", "revoke_lease");
             log.warn("Failed to revoke lease {}: {}", cred.leaseId(), e.getMessage());
+        } finally {
+            timer.observeDuration();
         }
     }
 

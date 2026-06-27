@@ -1,5 +1,7 @@
 package com.example.vault.ssh;
 
+import com.example.vault.metrics.MetricsService;
+import io.prometheus.client.Histogram;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.vault.core.VaultTemplate;
@@ -115,34 +117,42 @@ public class SshSecretService {
      */
     public SshOtpCredential generateOtp(String roleName, String username, String targetIp) {
         log.info("Generating OTP for {}@{} via role: {}", username, targetIp, roleName);
+        Histogram.Timer timer = MetricsService.startTimer("ssh", "generate_otp");
+        try {
+            Map<String, Object> request = new HashMap<>();
+            request.put("ip",       targetIp);
+            request.put("username", username);
 
-        Map<String, Object> request = new HashMap<>();
-        request.put("ip",       targetIp);
-        request.put("username", username);
+            VaultResponse response = vaultTemplate.write(
+                    otpMountPath + "/creds/" + roleName, request);
 
-        VaultResponse response = vaultTemplate.write(
-                otpMountPath + "/creds/" + roleName, request);
+            if (response == null || response.getData() == null) {
+                throw new RuntimeException("OTP generation failed — check role configuration");
+            }
 
-        if (response == null || response.getData() == null) {
-            throw new RuntimeException("OTP generation failed — check role configuration");
+            Map<String, Object> data = response.getData();
+
+            SshOtpCredential cred = new SshOtpCredential(
+                    (String) data.get("key"),
+                    (String) data.get("key_type"),
+                    username,
+                    targetIp,
+                    (String) data.get("port"),
+                    response.getLeaseId(),
+                    response.getLeaseDuration()
+            );
+
+            MetricsService.recordSuccess("ssh", "generate_otp");
+            log.info("OTP issued → lease_id={}, user={}, host={}, ttl={}s",
+                    cred.leaseId(), cred.username(), cred.targetIp(), cred.leaseDurationSeconds());
+
+            return cred;
+        } catch (Exception e) {
+            MetricsService.recordError("ssh", "generate_otp");
+            throw e;
+        } finally {
+            timer.observeDuration();
         }
-
-        Map<String, Object> data = response.getData();
-
-        SshOtpCredential cred = new SshOtpCredential(
-                (String) data.get("key"),           // The OTP
-                (String) data.get("key_type"),       // "otp"
-                username,
-                targetIp,
-                (String) data.get("port"),
-                response.getLeaseId(),
-                response.getLeaseDuration()
-        );
-
-        log.info("OTP issued → lease_id={}, user={}, host={}, ttl={}s",
-                cred.leaseId(), cred.username(), cred.targetIp(), cred.leaseDurationSeconds());
-
-        return cred;
     }
 
     /**
@@ -204,41 +214,49 @@ public class SshSecretService {
                                                    Map<String, String> extensions) {
         log.info("Signing SSH public key for principals='{}', ttl={}m",
                 validPrincipals, ttl.toMinutes());
+        Histogram.Timer timer = MetricsService.startTimer("ssh", "sign_user_cert");
+        try {
+            Map<String, Object> request = new HashMap<>();
+            request.put("public_key",        sshPublicKeyPem.trim());
+            request.put("valid_principals",  validPrincipals);
+            request.put("ttl",               ttl.toSeconds() + "s");
 
-        Map<String, Object> request = new HashMap<>();
-        request.put("public_key",        sshPublicKeyPem.trim());
-        request.put("valid_principals",  validPrincipals);
-        request.put("ttl",               ttl.toSeconds() + "s");
+            if (extensions != null && !extensions.isEmpty()) {
+                request.put("extensions", extensions);
+            }
 
-        if (extensions != null && !extensions.isEmpty()) {
-            request.put("extensions", extensions);
+            request.put("key_id", "user-" + System.getProperty("user.name", "unknown")
+                    + "-" + System.currentTimeMillis());
+
+            VaultResponse response = vaultTemplate.write(
+                    clientSignerMountPath + "/sign/" + roleName, request);
+
+            if (response == null || response.getData() == null) {
+                throw new RuntimeException("Certificate signing failed");
+            }
+
+            Map<String, Object> data = response.getData();
+
+            SshSignedCertificate cert = new SshSignedCertificate(
+                    (String) data.get("signed_key"),
+                    (String) data.get("serial_number"),
+                    validPrincipals,
+                    ttl,
+                    response.getLeaseId()
+            );
+
+            MetricsService.SSH_CERT_TTL.labels(validPrincipals).set(ttl.toSeconds());
+            MetricsService.recordSuccess("ssh", "sign_user_cert");
+            log.info("Certificate signed → serial={}, principals={}, ttl={}m",
+                    cert.serialNumber(), cert.validPrincipals(), ttl.toMinutes());
+
+            return cert;
+        } catch (Exception e) {
+            MetricsService.recordError("ssh", "sign_user_cert");
+            throw e;
+        } finally {
+            timer.observeDuration();
         }
-
-        // Optional: restrict to specific key IDs for audit
-        request.put("key_id", "user-" + System.getProperty("user.name", "unknown")
-                + "-" + System.currentTimeMillis());
-
-        VaultResponse response = vaultTemplate.write(
-                clientSignerMountPath + "/sign/" + roleName, request);
-
-        if (response == null || response.getData() == null) {
-            throw new RuntimeException("Certificate signing failed");
-        }
-
-        Map<String, Object> data = response.getData();
-
-        SshSignedCertificate cert = new SshSignedCertificate(
-                (String) data.get("signed_key"),        // Signed certificate content
-                (String) data.get("serial_number"),     // Certificate serial
-                validPrincipals,
-                ttl,
-                response.getLeaseId()
-        );
-
-        log.info("Certificate signed → serial={}, principals={}, ttl={}m",
-                cert.serialNumber(), cert.validPrincipals(), ttl.toMinutes());
-
-        return cert;
     }
 
     /**

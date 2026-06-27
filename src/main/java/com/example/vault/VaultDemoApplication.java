@@ -2,6 +2,7 @@ package com.example.vault;
 
 import com.example.vault.config.VaultConfig;
 import com.example.vault.db.DynamicDatabaseSecretService;
+import com.example.vault.metrics.MetricsService;
 import com.example.vault.pki.PkiSecretService;
 import com.example.vault.ssh.SshSecretService;
 import com.example.vault.transit.TransitSecretService;
@@ -42,8 +43,13 @@ public class VaultDemoApplication {
             ║       HashiCorp Vault Java Integration Demo          ║
             ║                                                      ║
             ║  Engines: DB | PKI | Transit | SSH                   ║
+            ║  Metrics: Prometheus + Grafana                       ║
             ╚══════════════════════════════════════════════════════╝
             """);
+
+        // ── Start Prometheus metrics server ───────────────────────────────────
+        MetricsService metrics = MetricsService.getInstance();
+        metrics.startServer();
 
         // ── Initialize Vault connection ───────────────────────────────────────
         VaultConfig config = VaultConfig.getInstance();
@@ -81,7 +87,19 @@ public class VaultDemoApplication {
             }
         }
 
-        System.out.println("\n✓ All demos completed.");
+        System.out.printf("""
+
+            ✓ All demos completed.
+
+            ┌─ Prometheus / Grafana ──────────────────────────────┐
+            │  Metrics endpoint : http://localhost:%d/metrics      │
+            │  Prometheus UI    : http://localhost:9090            │
+            │  Grafana dashboard: http://localhost:3000            │
+            │                     (admin / admin)                  │
+            │                                                      │
+            │  Press Ctrl+C to stop the metrics server.            │
+            └─────────────────────────────────────────────────────┘
+            %n""", metrics.getPort());
     }
 
     // ── Demo Runners ──────────────────────────────────────────────────────────

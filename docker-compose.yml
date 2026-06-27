@@ -11,7 +11,9 @@ version: '3.8'
 # Services:
 #   vault      → http://localhost:8201  (token: root)
 #   postgres   → localhost:5432
-#   pgadmin    → http://localhost:5050  (admin@admin.com / admin)
+#   prometheus → http://localhost:9090
+#   grafana    → http://localhost:3000  (admin / admin)
+#   pgadmin    → http://localhost:5050  (admin@admin.com / admin)  [--profile tools]
 # ─────────────────────────────────────────────────────────────────────────────
 
 services:
@@ -77,6 +79,57 @@ services:
     networks:
       - vault-net
 
+  # ── Prometheus ─────────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: vault-prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/etc/prometheus/console_libraries"
+      - "--web.console.templates=/etc/prometheus/consoles"
+      - "--web.enable-lifecycle"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    extra_hosts:
+      # Allows Prometheus (inside Docker) to reach the Java app on the host
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - vault-net
+
+  # ── Grafana ────────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:latest
+    container_name: vault-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER:     admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP:     "false"
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/etc/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - vault-net
+
   # ── PgAdmin (optional — DB browser UI) ────────────────────────────────────
   pgadmin:
     image: dpage/pgadmin4:latest
@@ -96,6 +149,8 @@ services:
 
 volumes:
   postgres_data:
+  prometheus_data:
+  grafana_data:
 
 networks:
   vault-net:
