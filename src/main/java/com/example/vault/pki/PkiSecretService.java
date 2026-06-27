@@ -1,6 +1,8 @@
 package com.example.vault.pki;
 
+import com.example.vault.metrics.MetricsService;
 import com.example.vault.model.IssuedCertificate;
+import io.prometheus.client.Histogram;
 import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.cert.X509CertificateHolder;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
@@ -101,44 +103,53 @@ public class PkiSecretService {
                                                String[] altNames,
                                                String[] ipSans) {
         log.info("Issuing certificate: CN={}, TTL={}h", commonName, ttl.toHours());
+        Histogram.Timer timer = MetricsService.startTimer("pki", "issue_certificate");
+        try {
+            VaultCertificateRequest.VaultCertificateRequestBuilder builder =
+                    VaultCertificateRequest.builder()
+                            .commonName(commonName)
+                            .ttl(ttl);
 
-        VaultCertificateRequest.VaultCertificateRequestBuilder builder =
-                VaultCertificateRequest.builder()
-                        .commonName(commonName)
-                        .ttl(ttl);
+            if (altNames != null && altNames.length > 0) {
+                builder.altNames(java.util.List.of(altNames));
+            }
+            if (ipSans != null && ipSans.length > 0) {
+                builder.ipSubjectAltNames(java.util.List.of(ipSans));
+            }
 
-        if (altNames != null && altNames.length > 0) {
-            builder.altNames(java.util.List.of(altNames));
+            VaultCertificateResponse response = vaultTemplate
+                    .opsForPki(pkiMountPath)
+                    .issueCertificate(roleName, builder.build());
+
+            if (response == null || response.getData() == null) {
+                throw new RuntimeException("No certificate returned from Vault");
+            }
+
+            var certData = response.getData();
+
+            IssuedCertificate cert = new IssuedCertificate(
+                    commonName,
+                    certData.getCertificate(),
+                    certData.getPrivateKey(),
+                    certData.getIssuingCaCertificate(),
+                    "",
+                    response.getLeaseId(),
+                    response.getLeaseDuration()
+            );
+
+            MetricsService.PKI_CERT_TTL.labels(roleName).set(response.getLeaseDuration());
+            MetricsService.recordSuccess("pki", "issue_certificate");
+            log.info("Certificate issued → serial={}, lease_id={}",
+                    extractSerialNumber(cert.certificatePem()),
+                    cert.leaseId());
+
+            return cert;
+        } catch (Exception e) {
+            MetricsService.recordError("pki", "issue_certificate");
+            throw e;
+        } finally {
+            timer.observeDuration();
         }
-        if (ipSans != null && ipSans.length > 0) {
-            builder.ipSubjectAltNames(java.util.List.of(ipSans));
-        }
-
-        VaultCertificateResponse response = vaultTemplate
-                .opsForPki(pkiMountPath)
-                .issueCertificate(roleName, builder.build());
-
-        if (response == null || response.getData() == null) {
-            throw new RuntimeException("No certificate returned from Vault");
-        }
-
-        var certData = response.getData();
-
-        IssuedCertificate cert = new IssuedCertificate(
-                commonName,
-                certData.getCertificate(),
-                certData.getPrivateKey(),
-                certData.getIssuingCaCertificate(),
-                "",
-                response.getLeaseId(),
-                response.getLeaseDuration()
-        );
-
-        log.info("Certificate issued → serial={}, lease_id={}",
-                extractSerialNumber(cert.certificatePem()),
-                cert.leaseId());
-
-        return cert;
     }
 
     // ── 2. Sign a CSR (externally generated) ──────────────────────────────────
@@ -182,15 +193,22 @@ public class PkiSecretService {
      */
     public void revokeCertificate(String serialNumber) {
         log.info("Revoking certificate: {}", serialNumber);
+        Histogram.Timer timer = MetricsService.startTimer("pki", "revoke_certificate");
+        try {
+            Map<String, Object> request = new HashMap<>();
+            request.put("serial_number", serialNumber);
 
-        Map<String, Object> request = new HashMap<>();
-        request.put("serial_number", serialNumber);
-
-        var response = vaultTemplate.write(pkiMountPath + "/revoke", request);
-
-        if (response != null && response.getData() != null) {
-            Object revokedAt = response.getData().get("revocation_time");
-            log.info("Certificate revoked at: {}", revokedAt);
+            var response = vaultTemplate.write(pkiMountPath + "/revoke", request);
+            MetricsService.recordSuccess("pki", "revoke_certificate");
+            if (response != null && response.getData() != null) {
+                Object revokedAt = response.getData().get("revocation_time");
+                log.info("Certificate revoked at: {}", revokedAt);
+            }
+        } catch (Exception e) {
+            MetricsService.recordError("pki", "revoke_certificate");
+            throw e;
+        } finally {
+            timer.observeDuration();
         }
     }
 

@@ -26,6 +26,9 @@
         <!-- Vault -->
         <vault.driver.version>2.3.4</vault.driver.version>
 
+        <!-- Metrics / Prometheus -->
+        <prometheus.version>0.16.0</prometheus.version>
+
         <!-- HTTP Client -->
         <okhttp.version>4.12.0</okhttp.version>
 
@@ -112,6 +115,26 @@
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
             <version>${logback.version}</version>
+        </dependency>
+
+        <!-- ================= METRICS ==================== -->
+        <!-- Prometheus Java client — core registry + counters/histograms/gauges -->
+        <dependency>
+            <groupId>io.prometheus</groupId>
+            <artifactId>simpleclient</artifactId>
+            <version>${prometheus.version}</version>
+        </dependency>
+        <!-- Embedded HTTP server to expose /metrics -->
+        <dependency>
+            <groupId>io.prometheus</groupId>
+            <artifactId>simpleclient_httpserver</artifactId>
+            <version>${prometheus.version}</version>
+        </dependency>
+        <!-- JVM metrics: heap, GC, threads, classloading -->
+        <dependency>
+            <groupId>io.prometheus</groupId>
+            <artifactId>simpleclient_hotspot</artifactId>
+            <version>${prometheus.version}</version>
         </dependency>
 
         <!-- ==================== UTILS ====================== -->

@@ -1,5 +1,7 @@
 package com.example.vault.transit;
 
+import com.example.vault.metrics.MetricsService;
+import io.prometheus.client.Histogram;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.vault.core.VaultTemplate;
@@ -81,12 +83,19 @@ public class TransitSecretService {
      */
     public String encrypt(String keyName, String plaintext) {
         log.debug("Encrypting with key: {}", keyName);
-
-        Plaintext pt = Plaintext.of(plaintext);
-        Ciphertext ciphertext = transitOps.encrypt(keyName, pt);
-
-        log.debug("Encrypted → {}", ciphertext.getCiphertext().substring(0, 20) + "...");
-        return ciphertext.getCiphertext();
+        Histogram.Timer timer = MetricsService.startTimer("transit", "encrypt");
+        try {
+            Plaintext pt = Plaintext.of(plaintext);
+            Ciphertext ciphertext = transitOps.encrypt(keyName, pt);
+            MetricsService.recordSuccess("transit", "encrypt");
+            log.debug("Encrypted → {}", ciphertext.getCiphertext().substring(0, 20) + "...");
+            return ciphertext.getCiphertext();
+        } catch (Exception e) {
+            MetricsService.recordError("transit", "encrypt");
+            throw e;
+        } finally {
+            timer.observeDuration();
+        }
     }
 
     /**
@@ -98,9 +107,17 @@ public class TransitSecretService {
      */
     public String decrypt(String keyName, String ciphertext) {
         log.debug("Decrypting with key: {}", keyName);
-
-        Plaintext plaintext = transitOps.decrypt(keyName, Ciphertext.of(ciphertext));
-        return plaintext.asString();
+        Histogram.Timer timer = MetricsService.startTimer("transit", "decrypt");
+        try {
+            Plaintext plaintext = transitOps.decrypt(keyName, Ciphertext.of(ciphertext));
+            MetricsService.recordSuccess("transit", "decrypt");
+            return plaintext.asString();
+        } catch (Exception e) {
+            MetricsService.recordError("transit", "decrypt");
+            throw e;
+        } finally {
+            timer.observeDuration();
+        }
     }
 
     // ── 2. Encrypt / Decrypt with Context (key derivation) ───────────────────
@@ -145,23 +162,31 @@ public class TransitSecretService {
      */
     public List<String> batchEncrypt(String keyName, List<String> plaintexts) {
         log.info("Batch encrypting {} items with key: {}", plaintexts.size(), keyName);
+        Histogram.Timer timer = MetricsService.startTimer("transit", "batch_encrypt");
+        try {
+            List<Plaintext> pts = plaintexts.stream()
+                    .map(Plaintext::of)
+                    .toList();
 
-        List<Plaintext> pts = plaintexts.stream()
-                .map(Plaintext::of)
-                .toList();
+            List<VaultEncryptionResult> results = transitOps.encrypt(keyName, pts);
 
-        List<VaultEncryptionResult> results = transitOps.encrypt(keyName, pts);
-
-        List<String> ciphertexts = new ArrayList<>();
-        for (VaultEncryptionResult result : results) {
-            if (result.getCause() == null) {
-                ciphertexts.add(result.get().getCiphertext());
-            } else {
-                log.error("Batch encrypt error: {}", result.getCause());
-                ciphertexts.add(null);
+            List<String> ciphertexts = new ArrayList<>();
+            for (VaultEncryptionResult result : results) {
+                if (result.getCause() == null) {
+                    ciphertexts.add(result.get().getCiphertext());
+                } else {
+                    log.error("Batch encrypt error: {}", result.getCause());
+                    ciphertexts.add(null);
+                }
             }
+            MetricsService.recordSuccess("transit", "batch_encrypt");
+            return ciphertexts;
+        } catch (Exception e) {
+            MetricsService.recordError("transit", "batch_encrypt");
+            throw e;
+        } finally {
+            timer.observeDuration();
         }
-        return ciphertexts;
     }
 
     /**
@@ -193,12 +218,19 @@ public class TransitSecretService {
      */
     public String sign(String keyName, String data) {
         log.debug("Signing data with key: {}", keyName);
-
-        Plaintext pt = Plaintext.of(data);
-        Signature signature = transitOps.sign(keyName, pt);
-
-        log.debug("Signed → {}", signature.getSignature().substring(0, 20) + "...");
-        return signature.getSignature();
+        Histogram.Timer timer = MetricsService.startTimer("transit", "sign");
+        try {
+            Plaintext pt = Plaintext.of(data);
+            Signature signature = transitOps.sign(keyName, pt);
+            MetricsService.recordSuccess("transit", "sign");
+            log.debug("Signed → {}", signature.getSignature().substring(0, 20) + "...");
+            return signature.getSignature();
+        } catch (Exception e) {
+            MetricsService.recordError("transit", "sign");
+            throw e;
+        } finally {
+            timer.observeDuration();
+        }
     }
 
     /**
@@ -211,12 +243,19 @@ public class TransitSecretService {
      */
     public boolean verify(String keyName, String data, String signature) {
         log.debug("Verifying signature with key: {}", keyName);
-
-        Plaintext pt = Plaintext.of(data);
-        boolean valid = transitOps.verify(keyName, pt, Signature.of(signature));
-
-        log.info("Signature verification for key {}: {}", keyName, valid ? "VALID" : "INVALID");
-        return valid;
+        Histogram.Timer timer = MetricsService.startTimer("transit", "verify");
+        try {
+            Plaintext pt = Plaintext.of(data);
+            boolean valid = transitOps.verify(keyName, pt, Signature.of(signature));
+            MetricsService.recordSuccess("transit", "verify");
+            log.info("Signature verification for key {}: {}", keyName, valid ? "VALID" : "INVALID");
+            return valid;
+        } catch (Exception e) {
+            MetricsService.recordError("transit", "verify");
+            throw e;
+        } finally {
+            timer.observeDuration();
+        }
     }
 
     // ── 5. HMAC ───────────────────────────────────────────────────────────────
@@ -261,8 +300,18 @@ public class TransitSecretService {
      */
     public void rotateKey(String keyName) {
         log.info("Rotating Transit key: {}", keyName);
-        transitOps.rotate(keyName);
-        log.info("Key rotated successfully: {}", keyName);
+        Histogram.Timer timer = MetricsService.startTimer("transit", "rotate_key");
+        try {
+            transitOps.rotate(keyName);
+            MetricsService.TRANSIT_KEY_ROTATIONS.labels(keyName).inc();
+            MetricsService.recordSuccess("transit", "rotate_key");
+            log.info("Key rotated successfully: {}", keyName);
+        } catch (Exception e) {
+            MetricsService.recordError("transit", "rotate_key");
+            throw e;
+        } finally {
+            timer.observeDuration();
+        }
     }
 
     /**
